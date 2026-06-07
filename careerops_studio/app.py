@@ -1,8 +1,10 @@
 import os
-import re
+import json
+import time
 from datetime import datetime
 from io import BytesIO
 from pathlib import Path
+from typing import Dict, List, Tuple
 
 import streamlit as st
 from dotenv import load_dotenv
@@ -22,147 +24,205 @@ except Exception:
 load_dotenv()
 
 APP_TITLE = "CareerOps Studio"
-APP_SUBTITLE = "Executive resume optimization workspace"
-DEFAULT_MODEL = "gemini-2.5-flash"
+APP_SUBTITLE = "Executive Resume Optimization Platform"
+DEFAULT_MODEL = "gemini-2.5-flash-lite"
 ROOT = Path(__file__).parent
 TEMPLATE_DIR = ROOT / "templates"
 
+HISTORY_FILE = ROOT / "careerops_history.json"
+MAX_HISTORY_ITEMS = 30
 
-STRICT_OUTPUT_FORMAT_RULES = """
-STRICT OUTPUT FORMAT RULES
+MODEL_OPTIONS = [
+    "gemini-2.5-flash-lite",
+    "gemini-2.5-flash",
+    "gemini-2.0-flash-lite",
+    "gemini-2.0-flash",
+    "gemini-1.5-flash",
+    "gemini-1.5-flash-8b",
+]
 
-The final response must follow this exact structure:
+CONTEXT_PROFILES = {
+    "Fast": {"instructions": 8000, "master": 26000, "manager": 8000, "director": 8000},
+    "Balanced": {"instructions": 14000, "master": 48000, "manager": 12000, "director": 12000},
+    "Deep": {"instructions": 24000, "master": 80000, "manager": 18000, "director": 18000},
+}
 
-SELECTED CV TYPE
-Manager CV
-or
-Director CV
 
-ATS VALIDATION STATUS
-A concise table only.
+def load_history() -> List[Dict]:
+    if not HISTORY_FILE.exists():
+        return []
 
-FINAL TAILORED CV
-Use the exact role headings below when included:
-Sr. EMEA Transport Manager
-Director Logistics
-Trade Compliance Manager EMEA
-Head of Logistics EMEA
-Sr. EMEA Logistics & Spare Parts Inventory Manager
+    try:
+        with open(HISTORY_FILE, "r", encoding="utf-8") as file:
+            data = json.load(file)
 
-Each achievement line must start with "ACHIEVEMENT: ".
-Each achievement line must be 170 to 190 characters including spaces AFTER the "ACHIEVEMENT: " prefix is removed.
-Do not use bullet symbols.
+        if isinstance(data, list):
+            return data
 
-COVER LETTER
-Only include this section when requested.
-The cover letter body must be exactly 1,800 characters including spaces, or as close as technically possible within 1,790 to 1,810 characters.
-Do not include placeholder text.
+        return []
 
-FINAL ATS REPORT
-A concise report only.
+    except Exception:
+        return []
 
-Do not show internal reasoning, keyword dumps, scoring logs, chain-of-thought, draft alternatives or validation steps.
-"""
 
-STRICT_VALIDATION_POLICY = """
-STRICT VALIDATION POLICY
+def save_history(history: List[Dict]) -> None:
+    try:
+        history = history[:MAX_HISTORY_ITEMS]
 
-Before final answer, internally verify:
-- Correct CV type selected.
-- Correct role inclusion/exclusion.
-- Exact mandatory achievement line counts.
-- Every achievement line between 170 and 190 characters including spaces.
-- Manager CV has exactly 8 Trade Compliance Manager EMEA achievement lines, not 7.
-- Cover Letter section, when present, is approximately 1,800 characters and must not be too long.
-- ATS validation is clearly an internal simulation, not live website data.
-- ATS skills are extracted from the Job Description and matched against the CV.
-"""
+        with open(HISTORY_FILE, "w", encoding="utf-8") as file:
+            json.dump(history, file, ensure_ascii=False, indent=2)
+
+    except Exception:
+        pass
+
+
+def add_history_item(kind: str, title: str, job_description: str, result: str, model: str, context_profile: str) -> None:
+    history = load_history()
+
+    item = {
+        "id": datetime.now().strftime("%Y%m%d_%H%M%S"),
+        "created_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        "kind": kind,
+        "title": title[:120] if title else kind,
+        "job_description": job_description or "",
+        "result": result or "",
+        "model": model or "",
+        "context_profile": context_profile or "",
+    }
+
+    history.insert(0, item)
+    save_history(history)
+
+
+def get_history_title(job_description: str, fallback: str = "CareerOps Output") -> str:
+    if not job_description:
+        return fallback
+
+    clean_lines = [line.strip() for line in job_description.splitlines() if line.strip()]
+
+    for line in clean_lines[:8]:
+        if len(line) >= 8:
+            return line[:100]
+
+    return fallback
+
+
+def render_history_panel() -> None:
+    st.markdown("### History")
+
+    history = load_history()
+
+    if not history:
+        st.caption("No saved outputs yet.")
+        return
+
+    labels = [
+        f"{item.get('created_at', '')} · {item.get('kind', 'Output')} · {item.get('title', 'Untitled')}"
+        for item in history
+    ]
+
+    selected_index = st.selectbox(
+        "Saved outputs",
+        range(len(labels)),
+        format_func=lambda index: labels[index],
+        key="history_selected_index",
+    )
+
+    selected_item = history[selected_index]
+
+    c1, c2 = st.columns(2)
+
+    with c1:
+        if st.button("Load", use_container_width=True):
+            st.session_state["last_result"] = selected_item.get("result", "")
+            st.session_state["last_job"] = selected_item.get("job_description", "")
+            st.session_state["loaded_history_item"] = selected_item
+            st.success("History item loaded.")
+
+    with c2:
+        if st.button("Clear", use_container_width=True):
+            save_history([])
+            st.session_state.pop("loaded_history_item", None)
+            st.success("History cleared.")
+            st.rerun()
+
+    with st.expander("Preview selected"):
+        st.caption(f"Model: {selected_item.get('model', '')}")
+        st.caption(f"Context: {selected_item.get('context_profile', '')}")
+        st.text((selected_item.get("result", "") or "")[:2500])
 
 def inject_css():
     st.markdown(
         """
         <style>
         :root {
-            --bg: #090b10;
-            --panel: rgba(20, 24, 32, .78);
-            --panel-strong: rgba(25, 30, 40, .92);
-            --border: rgba(218, 197, 167, .18);
-            --text: #f4efe8;
-            --muted: rgba(244,239,232,.68);
-            --gold: #d7b879;
-            --gold-soft: rgba(215,184,121,.14);
-            --blue: #9bb6d3;
-            --green: #8fd0a4;
-            --danger: #e88c8c;
+            --bg: #070910;
+            --panel: rgba(16, 19, 27, .86);
+            --panel2: rgba(22, 27, 38, .84);
+            --panel3: rgba(255,255,255,.045);
+            --border: rgba(230, 210, 170, .16);
+            --border2: rgba(230, 210, 170, .28);
+            --text: #f7f1e8;
+            --muted: rgba(247,241,232,.66);
+            --gold: #d6b56e;
+            --gold2: #f2d99e;
+            --blue: #8fb4dc;
+            --green: #94d6a8;
+            --red: #ff7272;
         }
         .stApp {
             color: var(--text);
             background:
-                radial-gradient(circle at 16% 0%, rgba(215,184,121,.16), transparent 28%),
-                radial-gradient(circle at 88% 12%, rgba(155,182,211,.12), transparent 24%),
-                linear-gradient(145deg, #06070a 0%, #0d1118 45%, #090b10 100%);
+              radial-gradient(circle at top left, rgba(214,181,110,.16), transparent 30%),
+              radial-gradient(circle at 90% 12%, rgba(143,180,220,.11), transparent 28%),
+              linear-gradient(135deg, #05060a 0%, #0b1019 45%, #080a0f 100%);
         }
         [data-testid="stHeader"] { background: rgba(0,0,0,0); }
+        .block-container { max-width: 1240px; padding-top: 1.2rem; }
         [data-testid="stSidebar"] {
-            background: linear-gradient(180deg, rgba(11,14,20,.98), rgba(13,17,24,.92));
+            background: linear-gradient(180deg, rgba(9,12,18,.99), rgba(13,17,25,.94));
             border-right: 1px solid var(--border);
         }
         [data-testid="stSidebar"] * { color: var(--text); }
-        .block-container { padding-top: 1.6rem; max-width: 1220px; }
-        .topbar {
-            display:flex; align-items:center; justify-content:space-between; gap:16px;
-            padding: 10px 2px 22px 2px;
-        }
-        .brand { font-size: .82rem; letter-spacing:.28em; text-transform:uppercase; color:var(--gold); }
-        .status-chip {
-            border:1px solid var(--border); background:var(--gold-soft); color:var(--text);
-            border-radius:999px; padding:7px 11px; font-size:.78rem;
-        }
-        .hero {
+        .studio-shell {
             border: 1px solid var(--border);
-            background:
-                linear-gradient(135deg, rgba(255,255,255,.065), rgba(255,255,255,.025)),
-                linear-gradient(135deg, rgba(215,184,121,.13), rgba(155,182,211,.055));
+            background: linear-gradient(135deg, rgba(255,255,255,.06), rgba(255,255,255,.025));
             border-radius: 28px;
-            padding: 34px 36px;
-            box-shadow: 0 30px 90px rgba(0,0,0,.42);
-            margin-bottom: 20px;
+            padding: 22px 26px;
+            box-shadow: 0 26px 80px rgba(0,0,0,.34);
+            margin-bottom: 18px;
         }
-        .hero h1 { margin:0; font-size:3.1rem; letter-spacing:-.065em; line-height:.95; }
-        .hero p { margin:14px 0 0; color:var(--muted); font-size:1.02rem; max-width:760px; }
-        .pill-row { display:flex; flex-wrap:wrap; gap:10px; margin-top:22px; }
-        .pill { border:1px solid var(--border); background:rgba(255,255,255,.045); border-radius:999px; padding:8px 12px; color:rgba(244,239,232,.84); font-size:.83rem; }
+        .studio-top { display:flex; justify-content:space-between; align-items:flex-start; gap:18px; }
+        .studio-brand { color:var(--gold); letter-spacing:.24em; text-transform:uppercase; font-size:.75rem; font-weight:700; }
+        .studio-title { margin-top:8px; font-size:2.3rem; line-height:1.02; letter-spacing:-.055em; font-weight:850; }
+        .studio-subtitle { color:var(--muted); margin-top:10px; max-width:760px; font-size:.98rem; }
+        .status-pill { border:1px solid var(--border2); background:rgba(214,181,110,.12); border-radius:999px; padding:8px 12px; color:var(--gold2); font-size:.78rem; white-space:nowrap; }
+        .mini-grid { display:grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap:12px; margin: 18px 0 2px; }
+        .mini-card { border:1px solid var(--border); background:rgba(255,255,255,.035); border-radius:18px; padding:14px 16px; }
+        .mini-label { color:var(--muted); font-size:.72rem; letter-spacing:.13em; text-transform:uppercase; }
+        .mini-value { margin-top:6px; font-size:1.03rem; font-weight:780; }
         .card {
-            border:1px solid var(--border); background:var(--panel); border-radius:22px;
-            padding:22px 24px; box-shadow: 0 18px 55px rgba(0,0,0,.28); margin-bottom:16px;
+            border:1px solid var(--border); background:var(--panel); border-radius:24px;
+            padding:24px 26px; box-shadow: 0 20px 60px rgba(0,0,0,.24); margin-bottom:16px;
         }
-        .metric-card {
-            border:1px solid var(--border); background:rgba(255,255,255,.045); border-radius:20px;
-            padding:18px; min-height:122px;
-        }
-        .metric-kicker { color:var(--muted); font-size:.78rem; text-transform:uppercase; letter-spacing:.12em; }
-        .metric-value { margin-top:8px; font-size:1.45rem; font-weight:750; letter-spacing:-.035em; }
-        .metric-hint { margin-top:9px; color:var(--muted); font-size:.84rem; }
-        .section-title { font-size:1.32rem; font-weight:780; letter-spacing:-.03em; margin:0 0 6px; }
+        .section-title { font-size:1.35rem; font-weight:820; letter-spacing:-.035em; margin:0 0 6px; }
         .section-note { color:var(--muted); margin:0 0 18px; }
-        .result-shell { border:1px solid var(--border); background:rgba(255,255,255,.055); border-radius:22px; padding:22px; margin-top:18px; }
-        .footer-note { text-align:center; color:var(--muted); font-size:.82rem; padding:30px 0 10px; }
+        .result-shell { border:1px solid var(--border); background:rgba(255,255,255,.055); border-radius:22px; padding:24px; margin-top:18px; }
+        .audit-box { border:1px solid rgba(148,214,168,.25); background:rgba(148,214,168,.08); border-radius:16px; padding:12px 14px; margin:14px 0; color:rgba(247,241,232,.88); }
+        .footer-note { text-align:center; color:var(--muted); font-size:.80rem; padding:26px 0 10px; }
         .stButton > button, .stDownloadButton > button {
-            border-radius: 14px !important; border:1px solid var(--border) !important; font-weight:700 !important;
-            padding:.68rem 1rem !important;
+            border-radius: 14px !important; border:1px solid var(--border) !important; font-weight:750 !important;
+            padding:.72rem 1rem !important;
         }
         .stButton > button[kind="primary"] {
-            color:#090b10 !important; border:0 !important;
-            background: linear-gradient(90deg, #f0d696, #c7a45f) !important;
+            color:#080910 !important; border:0 !important;
+            background: linear-gradient(90deg, #f3d995, #caa760) !important;
         }
-        textarea, input, .stTextArea textarea, .stTextInput input {
-            border-radius: 15px !important;
-        }
-        [data-testid="stFileUploader"] {
-            border:1px dashed rgba(215,184,121,.28); background:rgba(255,255,255,.035); border-radius:16px; padding:10px;
-        }
-        div[data-testid="stTabs"] button { border-radius:999px !important; padding:10px 18px !important; }
+        textarea, input, .stTextArea textarea, .stTextInput input { border-radius: 16px !important; }
+        [data-testid="stFileUploader"] { border:1px dashed rgba(214,181,110,.28); background:rgba(255,255,255,.035); border-radius:18px; padding:12px; }
+        div[data-testid="stTabs"] button { border-radius:999px !important; padding:11px 18px !important; }
         hr { border-color: var(--border); }
+        @media (max-width: 900px) { .mini-grid { grid-template-columns: repeat(2, minmax(0,1fr)); } .studio-title { font-size:1.8rem; } }
         </style>
         """,
         unsafe_allow_html=True,
@@ -191,17 +251,47 @@ def load_template_text(filename: str, fallback: str = "") -> str:
         return fallback
 
 
-def get_client():
-    api_key = os.getenv("GEMINI_API_KEY")
-    if not api_key:
-        st.error("GEMINI_API_KEY não encontrada. Crie um arquivo .env com GEMINI_API_KEY=sua_chave")
+def load_first_available(filenames: List[str]) -> str:
+    for filename in filenames:
+        text = load_template_text(filename)
+        if text.strip():
+            return text
+    return ""
+
+
+def get_clients():
+    keys = [
+        os.getenv("GEMINI_API_KEY_1"),
+        os.getenv("GEMINI_API_KEY_2"),
+        os.getenv("GEMINI_API_KEY_3"),
+        os.getenv("GEMINI_API_KEY_4"),
+        os.getenv("GEMINI_API_KEY_5"),
+        os.getenv("GEMINI_API_KEY"),
+    ]
+
+    clients = []
+
+    for index, key in enumerate(keys, start=1):
+        if key and key.strip():
+            clients.append({
+                "label": f"API Key {index}",
+                "client": genai.Client(api_key=key.strip()),
+            })
+
+    if not clients:
+        st.error(
+            "No Gemini API key found. Add GEMINI_API_KEY_1=your_key_here to the .env file. "
+            "You can also add GEMINI_API_KEY_2, GEMINI_API_KEY_3, GEMINI_API_KEY_4 and GEMINI_API_KEY_5."
+        )
         st.stop()
-    return genai.Client(api_key=api_key)
+
+    return clients
 
 
 def read_uploaded_file(uploaded_file) -> str:
     if uploaded_file is None:
         return ""
+    uploaded_file.seek(0)
     name = uploaded_file.name.lower()
     data = uploaded_file.read()
     if name.endswith((".txt", ".md", ".csv")):
@@ -220,7 +310,7 @@ def read_uploaded_file(uploaded_file) -> str:
         return "\n".join(parts)
     if name.endswith(".pdf"):
         if PdfReader is None:
-            return "[PDF enviado, mas pypdf não está instalado.]"
+            return "[PDF uploaded, but pypdf is not installed.]"
         reader = PdfReader(BytesIO(data))
         return "\n".join([(page.extract_text() or "") for page in reader.pages])
     return data.decode("utf-8", errors="ignore")
@@ -237,7 +327,6 @@ def make_docx(content: str, title: str = "CareerOps Studio Output") -> bytes:
     doc = Document()
     styles = doc.styles
     styles["Normal"].font.name = "Calibri"
-    styles["Normal"].font.size = None
     doc.add_heading(title, level=1)
     for line in content.splitlines():
         stripped = line.strip()
@@ -249,8 +338,6 @@ def make_docx(content: str, title: str = "CareerOps Studio Output") -> bytes:
             doc.add_heading(stripped[3:], level=2)
         elif stripped.startswith("### "):
             doc.add_heading(stripped[4:], level=3)
-        elif stripped.startswith("| "):
-            doc.add_paragraph(stripped)
         else:
             doc.add_paragraph(stripped)
     bio = BytesIO()
@@ -283,213 +370,98 @@ def make_pdf(content: str, title: str = "CareerOps Studio Output") -> bytes:
     return bio.getvalue()
 
 
-def call_model(prompt: str, model: str) -> str:
-    client = get_client()
-    response = client.models.generate_content(model=model, contents=prompt)
-    return response.text or ""
-
-
-def detect_cv_type(result: str) -> str:
-    lower = (result or "").lower()
-
-    if "selected cv type" in lower:
-        selected_block = lower.split("selected cv type", 1)[1][:200]
-        if "director cv" in selected_block:
-            return "Director CV"
-        if "manager cv" in selected_block:
-            return "Manager CV"
-
-    if "director cv" in lower and "manager cv" not in lower:
-        return "Director CV"
-
-    if "manager cv" in lower and "director cv" not in lower:
-        return "Manager CV"
-
-    return "Unknown"
-
-
-def normalize_role_name(line: str) -> str:
-    cleaned = re.sub(r"^[#\-\*\s\d\.\)]+", "", line or "").strip()
-    cleaned = cleaned.replace(":", "").strip()
-    return cleaned
-
-
-ROLE_NAMES = [
-    "Sr. EMEA Transport Manager",
-    "Director Logistics",
-    "Trade Compliance Manager EMEA",
-    "Head of Logistics EMEA",
-    "Sr. EMEA Logistics & Spare Parts Inventory Manager",
-]
-
-
-EXPECTED_COUNTS = {
-    "Director CV": {
-        "Sr. EMEA Transport Manager": 7,
-        "Director Logistics": 8,
-        "Trade Compliance Manager EMEA": 0,
-        "Head of Logistics EMEA": 7,
-        "Sr. EMEA Logistics & Spare Parts Inventory Manager": 5,
-    },
-    "Manager CV": {
-        "Sr. EMEA Transport Manager": 7,
-        "Director Logistics": 0,
-        "Trade Compliance Manager EMEA": 8,
-        "Head of Logistics EMEA": 7,
-        "Sr. EMEA Logistics & Spare Parts Inventory Manager": 5,
-    },
-}
-
-
-def extract_role_achievements(result: str) -> Dict[str, List[str]]:
-    role_hits = {role: [] for role in ROLE_NAMES}
-    current_role = None
-
-    for raw_line in (result or "").splitlines():
-        line = raw_line.strip()
-        normalized = normalize_role_name(line)
-
-        for role in ROLE_NAMES:
-            if normalized.lower() == role.lower():
-                current_role = role
-                break
-
-        if not current_role:
-            continue
-
-        if line.upper().startswith("ACHIEVEMENT:"):
-            achievement = line.split(":", 1)[1].strip()
-            role_hits[current_role].append(achievement)
-
-    return role_hits
-
-
-def extract_cover_letter_text(result: str) -> str:
-    text = result or ""
-    lower = text.lower()
-
-    if "cover letter" not in lower:
+def clean_model_text(text: str) -> str:
+    if not text:
         return ""
-
-    start = lower.find("cover letter")
-    after = text[start:]
-
-    # Remove section title line.
-    lines = after.splitlines()
-    if lines:
-        lines = lines[1:]
-
-    stop_markers = [
-        "FINAL ATS REPORT",
-        "ATS REPORT",
-        "FINAL REPORT",
-        "SOURCE CONTROL",
-    ]
-
-    collected = []
-    for line in lines:
-        stripped = line.strip()
-        if stripped.upper() in stop_markers:
+    markers = ["done thinking.", "</think>"]
+    lower = text.lower()
+    for marker in markers:
+        idx = lower.rfind(marker)
+        if idx != -1:
+            text = text[idx + len(marker):]
             break
-        collected.append(line)
-
-    return "\n".join(collected).strip()
+    return text.strip()
 
 
-def validate_generated_output(result: str, output_scope: str) -> Tuple[bool, List[str]]:
-    issues = []
-    cv_type = detect_cv_type(result)
+def call_model(prompt: str, primary_model: str, failover_models: List[str]) -> Tuple[str, str, List[str]]:
+    clients = get_clients()
 
-    if cv_type not in EXPECTED_COUNTS:
-        issues.append("Selected CV Type is missing or unclear. Must be exactly Manager CV or Director CV.")
-        return False, issues
+    models_to_try = []
+    for item in [primary_model] + failover_models:
+        item = (item or "").strip()
+        if item and item not in models_to_try:
+            models_to_try.append(item)
 
-    role_achievements = extract_role_achievements(result)
-    expected = EXPECTED_COUNTS[cv_type]
+    if len(prompt) > 180000:
+        prompt = prompt[:180000] + "\n\n[Prompt truncated by application limit]"
 
-    for role, required_count in expected.items():
-        actual_count = len(role_achievements.get(role, []))
+    attempts = []
+    last_error = None
 
-        if required_count == 0 and actual_count > 0:
-            issues.append(f"{role}: must not be included for {cv_type}, but {actual_count} achievement lines were found.")
+    for client_info in clients:
+        client_label = client_info["label"]
+        client = client_info["client"]
 
-        if required_count > 0 and actual_count != required_count:
-            issues.append(f"{role}: expected exactly {required_count} achievement lines, found {actual_count}.")
+        for current_model in models_to_try:
+            for attempt in range(2):
+                try:
+                    attempts.append(f"{client_label} / {current_model}: attempt {attempt + 1}")
 
-        for index, achievement in enumerate(role_achievements.get(role, []), start=1):
-            char_count = len(achievement)
-            if char_count < 170 or char_count > 190:
-                issues.append(f"{role} achievement {index}: {char_count} characters. Required 170-190 including spaces.")
+                    response = client.models.generate_content(
+                        model=current_model,
+                        contents=prompt,
+                    )
 
-    if "Cover Letter" in output_scope or "Cover Letter" in (result or ""):
-        cover_letter = extract_cover_letter_text(result)
-        if cover_letter:
-            cover_len = len(cover_letter)
-            if cover_len < 1790 or cover_len > 1810:
-                issues.append(f"Cover Letter length is {cover_len} characters. Required approximately 1,800, accepted 1,790-1,810.")
-        elif "Cover Letter" in output_scope:
-            issues.append("Cover Letter was requested but not found.")
+                    text = clean_model_text(response.text or "")
 
-    lower = (result or "").lower()
-    if "linkedin ats" in lower or "jobscan" in lower or "skillsyncer" in lower or "resume worded" in lower or "rezi" in lower:
-        if "simulation" not in lower and "simulated" not in lower and "ats-style" not in lower:
-            issues.append("ATS validation mentions external ATS sites but does not clearly state that scores are simulated internally.")
+                    if not text:
+                        raise RuntimeError("Empty response returned by provider.")
 
-    return len(issues) == 0, issues
+                    return text, f"{current_model} ({client_label})", attempts
 
+                except Exception as exc:
+                    last_error = exc
+                    error_text = str(exc).lower()
+                    attempts.append(f"FAILED: {client_label} / {current_model}")
 
-def build_repair_prompt(original_prompt: str, previous_result: str, issues: List[str], output_scope: str) -> str:
-    issue_text = "\n".join(f"- {issue}" for issue in issues)
+                    if any(code in error_text for code in ["503", "unavailable", "high demand", "overloaded", "500"]):
+                        time.sleep(2 + attempt * 3)
+                        continue
 
-    return f"""
-You must repair the previous output. Do not explain the repair.
+                    if any(code in error_text for code in ["429", "quota", "rate", "resource_exhausted"]):
+                        break
 
-The previous output failed strict validation.
+                    if any(code in error_text for code in ["404", "not found", "invalid", "model"]):
+                        break
 
-Validation issues:
-{issue_text}
+                    break
 
-Hard requirements:
-- Use the same source facts only.
-- Keep the same selected CV type unless the previous selection was clearly wrong.
-- Use exact role headings.
-- Every achievement line must start with "ACHIEVEMENT: ".
-- Count characters after the "ACHIEVEMENT: " prefix only.
-- Every achievement line must be 170-190 characters including spaces.
-- Manager CV: Trade Compliance Manager EMEA must have exactly 8 achievement lines.
-- Director CV: Trade Compliance Manager EMEA must not be included.
-- Cover Letter, if included, must be 1,790-1,810 characters including spaces, target 1,800.
-- ATS validation must be described as simulated/internal, not live website data.
-- Return only the final corrected output.
+    raise RuntimeError(
+        "All configured API keys and models failed. Last error: "
+        + str(last_error)
+        + "\n\nLast attempts:\n"
+        + "\n".join(attempts[-20:])
+    )
 
-Original task:
-{original_prompt}
-
-Previous output:
-{previous_result}
-
-Output package:
-{output_scope}
-"""
-
-def build_context(instructions, master, manager, director):
+def build_context(instructions, master, manager, director, profile: str):
+    limits = CONTEXT_PROFILES.get(profile, CONTEXT_PROFILES["Balanced"])
     return f"""
 [OPERATING INSTRUCTIONS]
-{truncate_text(instructions, 35000)}
+{truncate_text(instructions, limits['instructions'])}
 
 [EXPERIENCE REPOSITORY - SOURCE OF TRUTH]
-{truncate_text(master, 90000)}
+{truncate_text(master, limits['master'])}
 
 [MANAGER CV TEMPLATE]
-{truncate_text(manager, 18000)}
+{truncate_text(manager, limits['manager'])}
 
 [DIRECTOR CV TEMPLATE]
-{truncate_text(director, 18000)}
+{truncate_text(director, limits['director'])}
 """
 
 
 def render_downloads(result: str, base_name: str):
-    st.markdown('<div class="section-title">Exportar</div>', unsafe_allow_html=True)
+    st.markdown('<div class="section-title">Export</div>', unsafe_allow_html=True)
     c1, c2, c3 = st.columns(3)
     with c1:
         st.download_button("TXT", result.encode("utf-8"), f"{base_name}.txt", "text/plain", use_container_width=True)
@@ -497,22 +469,6 @@ def render_downloads(result: str, base_name: str):
         st.download_button("DOCX", make_docx(result), f"{base_name}.docx", "application/vnd.openxmlformats-officedocument.wordprocessingml.document", use_container_width=True)
     with c3:
         st.download_button("PDF", make_pdf(result), f"{base_name}.pdf", "application/pdf", use_container_width=True)
-
-
-def file_metric(label: str, text: str, required: bool = False):
-    loaded = bool(text.strip())
-    status = "Ready" if loaded else ("Required" if required else "Optional")
-    value = f"{len(text):,}".replace(",", ".")
-    st.markdown(
-        f"""
-        <div class="metric-card">
-          <div class="metric-kicker">{label}</div>
-          <div class="metric-value">{status}</div>
-          <div class="metric-hint">{value} characters indexed</div>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
 
 
 def strict_cv_prompt(context: str, job_description: str, language: str, output_scope: str) -> str:
@@ -589,64 +545,90 @@ CV TO VALIDATE
 """
 
 
+def show_header(provider_status: str, context_profile: str, selected_model: str):
+    st.markdown(
+        f"""
+        <div class="studio-shell">
+            <div class="studio-top">
+                <div>
+                    <div class="studio-brand">{APP_TITLE}</div>
+                    <div class="studio-title">Executive CV optimization workspace.</div>
+                    <div class="studio-subtitle">Map real achievements to job requirements, route Manager / Director CVs, validate ATS fit, and export client-ready files.</div>
+                </div>
+                <div class="status-pill">{provider_status}</div>
+            </div>
+            <div class="mini-grid">
+                <div class="mini-card"><div class="mini-label">Primary model</div><div class="mini-value">{selected_model}</div></div>
+                <div class="mini-card"><div class="mini-label">Context mode</div><div class="mini-value">{context_profile}</div></div>
+                <div class="mini-card"><div class="mini-label">Routing</div><div class="mini-value">Manager / Director</div></div>
+                <div class="mini-card"><div class="mini-label">Exports</div><div class="mini-value">PDF / DOCX / TXT</div></div>
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
 st.set_page_config(page_title=APP_TITLE, page_icon="◆", layout="wide")
 inject_css()
 
-st.markdown(
-    f"""
-    <div class="topbar">
-      <div class="brand">{APP_TITLE}</div>
-      <div class="status-chip">Private workspace</div>
-    </div>
-    <div class="hero">
-      <h1>Resume optimization, built for executive applications.</h1>
-      <p>{APP_SUBTITLE}. Select the right CV path, map real achievements to a role, validate ATS fit, and export clean client-ready documents.</p>
-      <div class="pill-row">
-        <span class="pill">Experience-led</span>
-        <span class="pill">ATS validation</span>
-        <span class="pill">Manager / Director routing</span>
-        <span class="pill">PDF & DOCX export</span>
-      </div>
-    </div>
-    """,
-    unsafe_allow_html=True,
-)
-
 with st.sidebar:
     st.markdown("### Workspace")
-    model = st.text_input("Model", value=DEFAULT_MODEL)
-    st.caption("Keep provider details internal when sharing with clients.")
+    primary_model = st.selectbox("Primary model", MODEL_OPTIONS, index=0)
+    failover_models = st.multiselect(
+        "Failover models",
+        MODEL_OPTIONS,
+        default=["gemini-2.5-flash", "gemini-2.0-flash-lite", "gemini-1.5-flash"],
+        help="If the primary model fails, CareerOps Studio will automatically try the next selected model.",
+    )
+    custom_model = st.text_input("Optional custom model", value="")
+    if custom_model.strip():
+        failover_models = [custom_model.strip()] + failover_models
+    context_profile = st.selectbox("Context depth", ["Fast", "Balanced", "Deep"], index=1)
+    st.caption("Use Fast when limits are strict. Add multiple keys in .env as GEMINI_API_KEY_1, GEMINI_API_KEY_2, etc.")
+    st.divider()
+    render_history_panel()
     st.divider()
     st.markdown("### Source documents")
     instructions_file = st.file_uploader("Instructions", type=["txt", "md", "docx", "pdf"], key="instructions")
     master_file = st.file_uploader("Experience Repository", type=["txt", "md", "docx", "pdf"], key="master")
     manager_file = st.file_uploader("Manager CV Template", type=["txt", "md", "docx", "pdf"], key="manager")
     director_file = st.file_uploader("Director CV Template", type=["txt", "md", "docx", "pdf"], key="director")
-    st.divider()
-    st.caption("For production: keep these files preloaded on the server, not uploaded by the client.")
 
-instructions_text = read_uploaded_file(instructions_file) or load_template_text("AI_CV_Instructions_Master_Rev7.docx")
-master_text = read_uploaded_file(master_file) or load_template_text("Master_Experience_File_Structured_Model.docx")
-manager_text = read_uploaded_file(manager_file) or load_template_text("Manager_CV_Template.docx")
-director_text = read_uploaded_file(director_file) or load_template_text("Director_CV_Template.docx")
-context = build_context(instructions_text, master_text, manager_text, director_text)
+instructions_text = read_uploaded_file(instructions_file) or load_first_available([
+    "My_ideas/AI_CV_Instructions_Master_Rev7.docx", "AI_CV_Instructions_Master.docx", "AI_CV_Instructions_Master_Rev7.docx"
+])
+master_text = read_uploaded_file(master_file) or load_first_available([
+    "Master Experience File.docx", "My_ideas/Master_Experience_File_Structured_Model.docx", "Master_Experience_File_Structured_Model.docx"
+])
+manager_text = read_uploaded_file(manager_file) or load_first_available([
+    "cv manager x AI.docx", "My_ideas/Manager_CV_Template.docx", "Manager_CV_Template.docx"
+])
+director_text = read_uploaded_file(director_file) or load_first_available([
+    "cv Director x AI.docx", "My_ideas/Director_CV_Template.docx", "Director_CV_Template.docx"
+])
+context = build_context(instructions_text, master_text, manager_text, director_text, context_profile)
 
-c1, c2, c3, c4 = st.columns(4)
-with c1:
-    file_metric("Instructions", instructions_text)
-with c2:
-    file_metric("Experience repository", master_text, required=True)
-with c3:
-    file_metric("Manager template", manager_text)
-with c4:
-    file_metric("Director template", director_text)
+provider_status = "Failover enabled" if failover_models else "Single model"
+show_header(provider_status, context_profile, primary_model)
+
+
+if st.session_state.get("loaded_history_item"):
+    loaded = st.session_state["loaded_history_item"]
+    st.info(f"Loaded from history: {loaded.get('created_at', '')} · {loaded.get('kind', '')} · {loaded.get('title', '')}")
+    with st.expander("Loaded history result"):
+        st.markdown(loaded.get("result", ""))
+        render_downloads(
+            loaded.get("result", ""),
+            f"careerops_history_{loaded.get('id', datetime.now().strftime('%Y%m%d_%H%M'))}",
+        )
 
 main_tab, validate_tab, files_tab = st.tabs(["Application workspace", "ATS validation", "Source control"])
 
 with main_tab:
     st.markdown('<div class="card">', unsafe_allow_html=True)
     st.markdown('<div class="section-title">Create tailored CV</div>', unsafe_allow_html=True)
-    st.markdown('<p class="section-note">Paste one complete job description. The system will select the CV type and map the most valuable real achievements to the role.</p>', unsafe_allow_html=True)
+    st.markdown('<p class="section-note">Paste one complete job description. The system selects the CV type and maps the strongest verified achievements to the target role.</p>', unsafe_allow_html=True)
     job_description = st.text_area("Job description", height=360, placeholder="Paste the full job description here...")
     c1, c2 = st.columns([1, 1])
     with c1:
@@ -670,10 +652,23 @@ with main_tab:
             st.error("The Experience Repository is missing or too small. Upload the real Master Experience File before generating a CV.")
         else:
             prompt = strict_cv_prompt(context, job_description, language, output_scope)
-            with st.spinner("Building the tailored CV..."):
-                result = call_model(prompt, model)
+            with st.spinner("Building the tailored CV and testing failover if needed..."):
+                try:
+                    result, used_model, attempts = call_model(prompt, primary_model, failover_models)
+                except Exception as exc:
+                    st.error(str(exc))
+                    st.stop()
             st.session_state["last_result"] = result
             st.session_state["last_job"] = job_description
+            add_history_item(
+                kind="CV",
+                title=get_history_title(job_description, "Tailored CV"),
+                job_description=job_description,
+                result=result,
+                model=used_model,
+                context_profile=context_profile,
+            )
+            st.markdown(f'<div class="audit-box">Processed with: <b>{used_model}</b><br>Attempts: {" → ".join(attempts)}</div>', unsafe_allow_html=True)
             st.markdown('<div class="result-shell">', unsafe_allow_html=True)
             st.markdown(result)
             st.markdown('</div>', unsafe_allow_html=True)
@@ -682,7 +677,7 @@ with main_tab:
 with validate_tab:
     st.markdown('<div class="card">', unsafe_allow_html=True)
     st.markdown('<div class="section-title">Validate existing CV against a job</div>', unsafe_allow_html=True)
-    st.markdown('<p class="section-note">Use this when the client already has a CV and wants to verify ATS match, keyword gaps and role alignment.</p>', unsafe_allow_html=True)
+    st.markdown('<p class="section-note">Use this when the client already has a CV and wants ATS match, keyword gaps and role alignment checked.</p>', unsafe_allow_html=True)
     existing_cv = st.text_area("Existing CV text", height=260, value=st.session_state.get("last_result", ""))
     validation_job = st.text_area("Job description for validation", height=240, value=st.session_state.get("last_job", ""))
     validate = st.button("Run ATS validation", type="primary", use_container_width=True)
@@ -692,8 +687,21 @@ with validate_tab:
             st.warning("Paste both the CV and the job description.")
         else:
             prompt = ats_validation_prompt(context, existing_cv, validation_job, "Same as job description")
-            with st.spinner("Validating ATS fit..."):
-                result = call_model(prompt, model)
+            with st.spinner("Validating ATS fit and testing failover if needed..."):
+                try:
+                    result, used_model, attempts = call_model(prompt, primary_model, failover_models)
+                except Exception as exc:
+                    st.error(str(exc))
+                    st.stop()
+            add_history_item(
+                kind="Validation",
+                title=get_history_title(validation_job, "ATS Validation"),
+                job_description=validation_job,
+                result=result,
+                model=used_model,
+                context_profile=context_profile,
+            )
+            st.markdown(f'<div class="audit-box">Processed with: <b>{used_model}</b><br>Attempts: {" → ".join(attempts)}</div>', unsafe_allow_html=True)
             st.markdown('<div class="result-shell">', unsafe_allow_html=True)
             st.markdown(result)
             st.markdown('</div>', unsafe_allow_html=True)
@@ -702,11 +710,12 @@ with validate_tab:
 with files_tab:
     st.markdown('<div class="card">', unsafe_allow_html=True)
     st.markdown('<div class="section-title">Loaded source files</div>', unsafe_allow_html=True)
-    st.markdown('<p class="section-note">Confirm whether the source material was loaded correctly. The Experience Repository is the source of truth.</p>', unsafe_allow_html=True)
-    st.write("Instructions characters:", len(instructions_text))
-    st.write("Experience Repository characters:", len(master_text))
-    st.write("Manager Template characters:", len(manager_text))
-    st.write("Director Template characters:", len(director_text))
+    st.markdown('<p class="section-note">Confirm the source material was loaded correctly. The Experience Repository remains the source of truth.</p>', unsafe_allow_html=True)
+    c1, c2, c3, c4 = st.columns(4)
+    c1.metric("Instructions", f"{len(instructions_text):,}".replace(",", "."))
+    c2.metric("Experience Repository", f"{len(master_text):,}".replace(",", "."))
+    c3.metric("Manager Template", f"{len(manager_text):,}".replace(",", "."))
+    c4.metric("Director Template", f"{len(director_text):,}".replace(",", "."))
     st.markdown('</div>', unsafe_allow_html=True)
     with st.expander("Preview instructions"):
         st.text(truncate_text(instructions_text, 6000))
