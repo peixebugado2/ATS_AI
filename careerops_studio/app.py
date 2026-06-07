@@ -13,9 +13,10 @@ from google import genai
 from docx import Document
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
 from reportlab.lib.units import cm
 from reportlab.lib.enums import TA_LEFT
+from reportlab.lib import colors
 
 try:
     from pypdf import PdfReader
@@ -197,9 +198,9 @@ Do not show reasoning, scoring steps, internal ranking, draft alternatives, keyw
 
 Final answer must contain only:
 1. SELECTED CV TYPE
-2. ATS VALIDATION STATUS - concise table with key simulated statistics
+2. ATS VALIDATION STATUS - concise Markdown table with columns Metric and Score
 3. FINAL TAILORED CV
-4. FINAL ATS REPORT - concise realistic simulated scores
+4. FINAL ATS REPORT - concise realistic simulated scores, using Markdown tables for metrics
 
 If Cover Letter is requested, include it as the last section inside FINAL TAILORED CV, after ATS Analysis.
 """
@@ -480,19 +481,141 @@ def truncate_text(text: str, max_chars: int) -> str:
     return text[:max_chars] + "\n\n[Content truncated by application limit]"
 
 
+def is_markdown_table_line(line: str) -> bool:
+    stripped = (line or "").strip()
+    return stripped.startswith("|") and stripped.endswith("|") and stripped.count("|") >= 2
+
+
+def is_markdown_separator_line(line: str) -> bool:
+    stripped = (line or "").strip()
+    if not is_markdown_table_line(stripped):
+        return False
+
+    cells = [cell.strip() for cell in stripped.strip("|").split("|")]
+    return bool(cells) and all(re.fullmatch(r":?-{3,}:?", cell or "") for cell in cells)
+
+
+def parse_markdown_table(lines: List[str], start_index: int) -> Tuple[List[List[str]], int]:
+    table_lines = []
+    index = start_index
+
+    while index < len(lines) and is_markdown_table_line(lines[index]):
+        table_lines.append(lines[index])
+        index += 1
+
+    rows = []
+
+    for raw in table_lines:
+        if is_markdown_separator_line(raw):
+            continue
+
+        cells = [cell.strip() for cell in raw.strip().strip("|").split("|")]
+        rows.append(cells)
+
+    return rows, index
+
+
+def detect_pipe_table_block(lines: List[str], start_index: int) -> bool:
+    if start_index >= len(lines):
+        return False
+
+    if not is_markdown_table_line(lines[start_index]):
+        return False
+
+    if start_index + 1 < len(lines) and is_markdown_separator_line(lines[start_index + 1]):
+        return True
+
+    return False
+
+
+def add_docx_markdown_table(doc: Document, rows: List[List[str]]) -> None:
+    if not rows:
+        return
+
+    max_cols = max(len(row) for row in rows)
+    normalized_rows = [row + [""] * (max_cols - len(row)) for row in rows]
+
+    table = doc.add_table(rows=len(normalized_rows), cols=max_cols)
+    table.style = "Table Grid"
+
+    for row_index, row in enumerate(normalized_rows):
+        for col_index, cell_text in enumerate(row):
+            cell = table.cell(row_index, col_index)
+            cell.text = cell_text
+
+            for paragraph in cell.paragraphs:
+                for run in paragraph.runs:
+                    run.font.name = "Calibri"
+                    if row_index == 0:
+                        run.bold = True
+
+    doc.add_paragraph("")
+
+
+def add_pdf_markdown_table(story: List, rows: List[List[str]], styles) -> None:
+    if not rows:
+        return
+
+    max_cols = max(len(row) for row in rows)
+    normalized_rows = [row + [""] * (max_cols - len(row)) for row in rows]
+
+    table_data = []
+
+    for row in normalized_rows:
+        pdf_row = []
+        for cell in row:
+            safe = str(cell).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+            pdf_row.append(Paragraph(safe, styles["TableCell"]))
+        table_data.append(pdf_row)
+
+    page_width = A4[0] - (1.65 * cm * 2)
+    col_width = page_width / max_cols
+    table = Table(table_data, colWidths=[col_width] * max_cols, repeatRows=1)
+
+    table.setStyle(TableStyle([
+        ("GRID", (0, 0), (-1, -1), 0.55, colors.HexColor("#8A94A6")),
+        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#E8EEF6")),
+        ("TEXTCOLOR", (0, 0), (-1, 0), colors.HexColor("#101828")),
+        ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+        ("BACKGROUND", (0, 1), (-1, -1), colors.HexColor("#FFFFFF")),
+        ("TEXTCOLOR", (0, 1), (-1, -1), colors.HexColor("#182230")),
+        ("VALIGN", (0, 0), (-1, -1), "TOP"),
+        ("LEFTPADDING", (0, 0), (-1, -1), 6),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 6),
+        ("TOPPADDING", (0, 0), (-1, -1), 5),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
+        ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.HexColor("#FFFFFF"), colors.HexColor("#F8FAFC")]),
+    ]))
+
+    story.append(table)
+    story.append(Spacer(1, 0.22 * cm))
+
 def make_docx(content: str, title: str = "CareerOps Studio Output") -> bytes:
     doc = Document()
     styles = doc.styles
     styles["Normal"].font.name = "Calibri"
 
-    for raw_line in content.splitlines():
-        line = raw_line.rstrip()
+    doc.add_heading(title, level=1)
 
-        if not line.strip():
+    lines = content.splitlines()
+    index = 0
+
+    while index < len(lines):
+        raw_line = lines[index]
+        line = raw_line.rstrip()
+        stripped = line.strip()
+
+        if not stripped:
             doc.add_paragraph("")
+            index += 1
             continue
 
-        stripped = line.strip()
+        if detect_pipe_table_block(lines, index):
+            rows, next_index = parse_markdown_table(lines, index)
+            add_docx_markdown_table(doc, rows)
+            index = next_index
+            continue
+
         upper = stripped.upper()
 
         if upper in [
@@ -505,8 +628,16 @@ def make_docx(content: str, title: str = "CareerOps Studio Output") -> bytes:
             doc.add_heading(stripped, level=1)
         elif stripped in REQUIRED_CV_SECTIONS or stripped in ROLE_NAMES:
             doc.add_heading(stripped, level=2)
+        elif stripped.startswith("# "):
+            doc.add_heading(stripped[2:], level=1)
+        elif stripped.startswith("## "):
+            doc.add_heading(stripped[3:], level=2)
+        elif stripped.startswith("### "):
+            doc.add_heading(stripped[4:], level=3)
         else:
             doc.add_paragraph(stripped)
+
+        index += 1
 
     bio = BytesIO()
     doc.save(bio)
@@ -522,20 +653,54 @@ def make_pdf(content: str, title: str = "CareerOps Studio Output") -> bytes:
         topMargin=1.55 * cm,
         bottomMargin=1.55 * cm,
     )
+
     styles = getSampleStyleSheet()
     styles.add(ParagraphStyle(name="ExecutiveTitle", parent=styles["Title"], alignment=TA_LEFT, fontSize=17, leading=21, spaceAfter=12))
+    styles.add(ParagraphStyle(name="ExecutiveHeading1", parent=styles["Heading1"], alignment=TA_LEFT, fontSize=14, leading=17, spaceBefore=10, spaceAfter=7, textColor=colors.HexColor("#1F4E79")))
+    styles.add(ParagraphStyle(name="ExecutiveHeading2", parent=styles["Heading2"], alignment=TA_LEFT, fontSize=11.5, leading=14, spaceBefore=8, spaceAfter=5, textColor=colors.HexColor("#101828")))
     styles.add(ParagraphStyle(name="ExecutiveNormal", parent=styles["Normal"], fontSize=9.3, leading=12.2, spaceAfter=4.8))
+    styles.add(ParagraphStyle(name="TableCell", parent=styles["Normal"], fontSize=8.5, leading=10.5, spaceAfter=0))
+
     story = [Paragraph(title, styles["ExecutiveTitle"])]
-    for line in content.splitlines():
-        stripped = line.strip()
+
+    lines = content.splitlines()
+    index = 0
+
+    while index < len(lines):
+        raw_line = lines[index]
+        stripped = raw_line.strip()
+
         if not stripped:
             story.append(Spacer(1, 0.18 * cm))
+            index += 1
+            continue
+
+        if detect_pipe_table_block(lines, index):
+            rows, next_index = parse_markdown_table(lines, index)
+            add_pdf_markdown_table(story, rows, styles)
+            index = next_index
+            continue
+
+        safe = stripped.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+        upper = stripped.upper()
+
+        if upper in [
+            "SELECTED CV TYPE",
+            "ATS VALIDATION STATUS",
+            "FINAL TAILORED CV",
+            "FINAL ATS REPORT",
+            "COVER LETTER",
+        ]:
+            story.append(Paragraph(safe, styles["ExecutiveHeading1"]))
+        elif stripped in REQUIRED_CV_SECTIONS or stripped in ROLE_NAMES:
+            story.append(Paragraph(safe, styles["ExecutiveHeading2"]))
         else:
-            safe = stripped.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
             story.append(Paragraph(safe, styles["ExecutiveNormal"]))
+
+        index += 1
+
     pdf.build(story)
     return bio.getvalue()
-
 
 def clean_model_text(text: str) -> str:
     if not text:
@@ -965,7 +1130,7 @@ D. Select and rewrite achievements from source facts only.
 E. Validate each achievement line internally until it is 170-190 characters including spaces.
 F. Place each achievement on a new line with no prefix and no bullet symbol.
 G. If Cover Letter is requested, write it from Job Description + selected achievements and keep it 1,795-1,805 characters.
-H. Produce internal simulated ATS-style statistics and skill matching.
+H. Produce internal simulated ATS-style statistics and skill matching as Markdown tables so PDF and DOCX exports render real table cells.
 I. Return only the final output sections.
 
 OUTPUT REQUIRED
@@ -1109,7 +1274,12 @@ with main_tab:
     st.markdown('<div class="card">', unsafe_allow_html=True)
     st.markdown('<div class="section-title">Create tailored CV</div>', unsafe_allow_html=True)
     st.markdown('<p class="section-note">Paste one complete job description. The system enforces exact role counts, validates every achievement at 170-190 characters including spaces, keeps Trade Compliance Manager at 8 achievements for Manager CV, and treats ATS as internal simulation.</p>', unsafe_allow_html=True)
-    job_description = st.text_area("Job description", height=360, placeholder="Paste the full job description here...")
+    job_description = st.text_area(
+        "Job description",
+        height=360,
+        placeholder="Paste the full job description here. You can include Markdown tables like: | Metric | Score |"
+    )
+    st.caption("Formatted input tip: paste tables in Markdown format. Example: | Metric | Score |. DOCX tables are also read from uploaded files.")
     c1, c2 = st.columns([1, 1])
     with c1:
         language = st.selectbox("Output language", ["Same as job description", "English", "Português do Brasil"])
@@ -1200,7 +1370,7 @@ with validate_tab:
 with files_tab:
     st.markdown('<div class="card">', unsafe_allow_html=True)
     st.markdown('<div class="section-title">Loaded source files</div>', unsafe_allow_html=True)
-    st.markdown('<p class="section-note">Confirm the source material was loaded correctly. The Experience Repository remains the source of truth.</p>', unsafe_allow_html=True)
+    st.markdown('<p class="section-note">Confirm the source material was loaded correctly. Markdown tables and DOCX table content are exported as formatted cells in DOCX and PDF.</p>', unsafe_allow_html=True)
     c1, c2, c3, c4 = st.columns(4)
     c1.metric("Instructions", f"{len(instructions_text):,}".replace(",", "."))
     c2.metric("Experience Repository", f"{len(master_text):,}".replace(",", "."))
