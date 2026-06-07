@@ -291,22 +291,25 @@ def inject_css():
         """
         <style>
         :root {
-            --bg: #f6f7fb;
-            --surface: #ffffff;
-            --surface-2: #f9fafc;
-            --text: #182230;
-            --muted: #667085;
-            --border: #d9e0ea;
-            --border-soft: #edf0f5;
-            --primary: #1f4e79;
-            --primary-2: #173b5c;
+            --bg: #0a0f1a;
+            --surface: #111827;
+            --surface-2: #1a2332;
+            --text: #f3f4f6;
+            --muted: #9ca3af;
+            --border: #2a3444;
+            --border-soft: #1f2937;
+            --primary: #d4af37;
+            --primary-2: #b89020;
             --success: #15803d;
             --danger: #b42318;
             --shadow: 0 10px 30px rgba(16, 24, 40, .07);
         }
         .stApp {
             color: var(--text);
-            background: linear-gradient(180deg, #f8fafc 0%, #eef2f7 100%);
+            background:
+        radial-gradient(circle at top left, rgba(212,175,55,.12), transparent 30%),
+        radial-gradient(circle at top right, rgba(80,120,255,.08), transparent 35%),
+        linear-gradient(180deg, #05070c 0%, #0b1120 100%);
         }
         [data-testid="stHeader"] {
             background: rgba(248, 250, 252, .92);
@@ -319,7 +322,8 @@ def inject_css():
             padding-bottom: 2rem;
         }
         [data-testid="stSidebar"] {
-            background: #0f172a;
+            background:
+            linear-gradient(180deg,#0a0f1a 0%,#111827 100%);
             border-right: 1px solid rgba(255,255,255,.08);
         }
         [data-testid="stSidebar"] * { color: #f8fafc; }
