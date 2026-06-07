@@ -585,7 +585,7 @@ with st.sidebar:
     if custom_model.strip():
         failover_models = [custom_model.strip()] + failover_models
     context_profile = st.selectbox("Context depth", ["Fast", "Balanced", "Deep"], index=1)
-    st.caption("Use Fast when limits are strict. Add multiple keys in .env as GEMINI_API_KEY_1, GEMINI_API_KEY_2, etc.")
+    st.caption("multiple keys.")
     st.divider()
     render_history_panel()
     st.divider()
