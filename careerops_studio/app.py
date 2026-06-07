@@ -73,8 +73,33 @@ EXPECTED_COUNTS = {
     },
 }
 
+REQUIRED_CV_SECTIONS = [
+    "Name",
+    "Contact Details",
+    "Additional ATS Skills",
+    "Professional Summary",
+    "Professional Experience",
+    "Education",
+    "Systems / Tools",
+    "ATS Analysis",
+]
+
+MANDATORY_CV_TYPE_RULES = """
+CV TYPE SELECTION RULES - NON NEGOTIABLE
+
+Director CV:
+Use when the Job Description mentions Director, Head of, Senior Leadership, Strategic Leadership, Global Leadership, Regional Leadership, executive ownership or director-level accountability.
+Mandatory sections: Sr. EMEA Transport Manager; Director Logistics; Head of Logistics EMEA; Sr. EMEA Logistics & Spare Parts Inventory Manager.
+Director CV must NOT include Trade Compliance Manager EMEA.
+
+Manager CV:
+Use when the Job Description mentions Manager, Operations Manager, Supply Chain Manager, Logistics Manager, Warehouse Manager or operational management.
+Mandatory sections: Sr. EMEA Transport Manager; Trade Compliance Manager EMEA; Head of Logistics EMEA; Sr. EMEA Logistics & Spare Parts Inventory Manager.
+Manager CV must include Trade Compliance Manager EMEA instead of Director Logistics.
+"""
+
 MANDATORY_BULLET_COUNTS = """
-MANDATORY BULLET COUNTS - NON NEGOTIABLE
+MANDATORY ACHIEVEMENT COUNTS - NON NEGOTIABLE
 
 Director CV:
 - Sr. EMEA Transport Manager: exactly 7 achievement lines
@@ -87,21 +112,42 @@ Manager CV:
 - Sr. EMEA Transport Manager: exactly 7 achievement lines
 - Director Logistics: must not appear
 - Trade Compliance Manager EMEA: exactly 8 achievement lines, not 7
-- Head of Logistics EMEA: exactly 7 achievement lines
+- Head of Logistics EMEA: exactly 7 achievement lines, not 6
 - Sr. EMEA Logistics & Spare Parts Inventory Manager: exactly 5 achievement lines
 
 Do not add extra roles. Do not omit required roles. Do not create fewer or more achievement lines.
 """
 
 STRICT_FORMAT_RULES = """
-STRICT FORMAT RULES - MACHINE VALIDATED
+STRICT COPY-PASTE FORMAT RULES - MACHINE VALIDATED
 
-The final output must use these exact headings:
-SELECTED CV TYPE
-ATS VALIDATION STATUS
-FINAL TAILORED CV
-COVER LETTER
-FINAL ATS REPORT
+The output must be easy to copy and paste into the existing CV template.
+
+Mandatory section order inside FINAL TAILORED CV:
+1. Name
+2. Contact Details
+3. Additional ATS Skills
+4. Professional Summary
+5. Professional Experience
+6. Education
+7. Systems / Tools
+8. ATS Analysis
+9. Cover Letter only if requested
+
+Professional Experience formatting:
+- Each role heading must be on its own line.
+- Each achievement must be on its own separate new line.
+- DO NOT write "ACHIEVEMENT:".
+- DO NOT write "Achievement:".
+- DO NOT write "Bullet:".
+- DO NOT write "Result:".
+- DO NOT write "Success:".
+- DO NOT write "KPI:".
+- DO NOT use bullet symbols such as -, *, •, or numbered bullets for achievements.
+- Do not place multiple achievements on the same paragraph.
+- One blank line between roles.
+- No blank lines between achievements inside the same role.
+- Achievement text must be plain text only, ready to paste into the CV.
 
 Professional experience role headings must match exactly:
 Sr. EMEA Transport Manager
@@ -110,12 +156,7 @@ Trade Compliance Manager EMEA
 Head of Logistics EMEA
 Sr. EMEA Logistics & Spare Parts Inventory Manager
 
-Every achievement line must start exactly with:
-ACHIEVEMENT: 
-
-The character count rule applies only to the text after ACHIEVEMENT: .
-Every achievement text after ACHIEVEMENT: must be 170 to 190 characters including spaces.
-Do not use bullet symbols for achievement lines.
+Every achievement line must be 170 to 190 characters including spaces.
 """
 
 COVER_LETTER_RULES = """
@@ -126,7 +167,7 @@ Extract the company name, exact job title, location, seniority, department, resp
 Never use placeholders such as [Company Name], [Hiring Manager Name], [Job Title] or similar text.
 If company name is available, address it to: Dear Hiring Team at [Company Name],
 If company name is not available, address it to: Dear Hiring Manager,
-The cover letter body must be 1,790 to 1,810 characters including spaces. Target exactly 1,800 characters.
+The cover letter body must be 1,795 to 1,805 characters including spaces. Target exactly 1,800 characters.
 Do not show the character count in the final output.
 Do not invent facts, achievements, metrics, certifications, systems or company information.
 """
@@ -158,10 +199,10 @@ Final answer must contain only:
 1. SELECTED CV TYPE
 2. ATS VALIDATION STATUS - concise table with key simulated statistics
 3. FINAL TAILORED CV
-4. COVER LETTER only when requested
-5. FINAL ATS REPORT - concise realistic simulated scores
-"""
+4. FINAL ATS REPORT - concise realistic simulated scores
 
+If Cover Letter is requested, include it as the last section inside FINAL TAILORED CV, after ATS Analysis.
+"""
 
 
 def load_history() -> List[Dict]:
@@ -443,23 +484,33 @@ def make_docx(content: str, title: str = "CareerOps Studio Output") -> bytes:
     doc = Document()
     styles = doc.styles
     styles["Normal"].font.name = "Calibri"
-    doc.add_heading(title, level=1)
-    for line in content.splitlines():
-        stripped = line.strip()
-        if not stripped:
+
+    for raw_line in content.splitlines():
+        line = raw_line.rstrip()
+
+        if not line.strip():
             doc.add_paragraph("")
-        elif stripped.startswith("# "):
-            doc.add_heading(stripped[2:], level=1)
-        elif stripped.startswith("## "):
-            doc.add_heading(stripped[3:], level=2)
-        elif stripped.startswith("### "):
-            doc.add_heading(stripped[4:], level=3)
+            continue
+
+        stripped = line.strip()
+        upper = stripped.upper()
+
+        if upper in [
+            "SELECTED CV TYPE",
+            "ATS VALIDATION STATUS",
+            "FINAL TAILORED CV",
+            "FINAL ATS REPORT",
+            "COVER LETTER",
+        ]:
+            doc.add_heading(stripped, level=1)
+        elif stripped in REQUIRED_CV_SECTIONS or stripped in ROLE_NAMES:
+            doc.add_heading(stripped, level=2)
         else:
             doc.add_paragraph(stripped)
+
     bio = BytesIO()
     doc.save(bio)
     return bio.getvalue()
-
 
 def make_pdf(content: str, title: str = "CareerOps Studio Output") -> bytes:
     bio = BytesIO()
@@ -560,55 +611,176 @@ def call_model(prompt: str, primary_model: str, failover_models: List[str]) -> T
     )
 
 def normalize_role_name(line: str) -> str:
-    return re.sub(r"^[#\-\*\s\d\.\)]+", "", line or "").replace(":", "").strip()
+    cleaned = re.sub(r"^[#\-\*\•\s\d\.\)]+", "", line or "").strip()
+    cleaned = cleaned.replace(":", "").strip()
+    return cleaned
+
+
+def normalize_for_match(text: str) -> str:
+    return re.sub(r"[^a-z0-9]+", " ", (text or "").lower()).strip()
 
 
 def detect_cv_type(result: str) -> str:
     text = result or ""
     lower = text.lower()
+
     m = re.search(r"selected\s+cv\s+type\s*[:\n\-]*\s*(manager cv|director cv)", lower)
     if m:
         return "Manager CV" if "manager" in m.group(1) else "Director CV"
-    if "director cv" in lower and "manager cv" not in lower:
+
+    first_500 = lower[:500]
+    if "director cv" in first_500:
         return "Director CV"
-    if "manager cv" in lower and "director cv" not in lower:
+    if "manager cv" in first_500:
         return "Manager CV"
+
     return "Unknown"
+
+
+def is_section_heading(line: str) -> bool:
+    normalized = normalize_for_match(line)
+    known = [
+        "selected cv type",
+        "ats validation status",
+        "final tailored cv",
+        "name",
+        "contact details",
+        "additional ats skills",
+        "professional summary",
+        "professional experience",
+        "education",
+        "systems tools",
+        "ats analysis",
+        "cover letter",
+        "final ats report",
+    ]
+    return normalized in known
+
+
+def is_role_heading(line: str) -> str:
+    normalized = normalize_role_name(line).lower()
+    for role in ROLE_NAMES:
+        if normalized == role.lower():
+            return role
+    return ""
+
+
+def is_plain_achievement_line(line: str) -> bool:
+    stripped = (line or "").strip()
+    if not stripped:
+        return False
+    if is_section_heading(stripped):
+        return False
+    if is_role_heading(stripped):
+        return False
+    forbidden_prefixes = ("achievement:", "achievements:", "bullet:", "result:", "success:", "kpi:")
+    if stripped.lower().startswith(forbidden_prefixes):
+        return False
+    if stripped.startswith(("-", "*", "•")):
+        return False
+    if re.match(r"^\d+[\.\)]\s+", stripped):
+        return False
+    if len(stripped) < 80:
+        return False
+    return True
 
 
 def extract_role_achievements(result: str) -> Dict[str, List[str]]:
     role_hits = {role: [] for role in ROLE_NAMES}
     current_role = None
+    inside_experience = False
+
     for raw_line in (result or "").splitlines():
         line = raw_line.strip()
-        normalized = normalize_role_name(line)
-        for role in ROLE_NAMES:
-            if normalized.lower() == role.lower():
-                current_role = role
-                break
-        if not current_role:
+        if not line:
             continue
-        if line.upper().startswith("ACHIEVEMENT:"):
-            achievement = line.split(":", 1)[1].strip()
-            role_hits[current_role].append(achievement)
+
+        normalized_section = normalize_for_match(line)
+
+        if normalized_section == "professional experience":
+            inside_experience = True
+            current_role = None
+            continue
+
+        if inside_experience and normalized_section in ["education", "systems tools", "ats analysis", "cover letter", "final ats report"]:
+            break
+
+        role = is_role_heading(line)
+        if role:
+            current_role = role
+            inside_experience = True
+            continue
+
+        if inside_experience and current_role and is_plain_achievement_line(line):
+            role_hits[current_role].append(line)
+
     return role_hits
 
 
-def extract_cover_letter_text(result: str) -> str:
+def extract_section_text(result: str, section_name: str, stop_sections: List[str]) -> str:
     text = result or ""
-    match = re.search(r"(?is)\bCOVER LETTER\b\s*\n(.*?)(?:\n\s*FINAL ATS REPORT\b|\Z)", text)
-    if not match:
-        return ""
-    cover = match.group(1).strip()
-    return re.sub(r"\n{3,}", "\n\n", cover)
+    lines = text.splitlines()
+    collecting = False
+    collected = []
+    wanted = normalize_for_match(section_name)
+    stops = {normalize_for_match(s) for s in stop_sections}
+
+    for line in lines:
+        normalized = normalize_for_match(line.strip())
+        if normalized == wanted:
+            collecting = True
+            continue
+        if collecting and normalized in stops:
+            break
+        if collecting:
+            collected.append(line)
+
+    return "\n".join(collected).strip()
+
+
+def extract_cover_letter_text(result: str) -> str:
+    return extract_section_text(result, "Cover Letter", ["Final ATS Report"])
+
+
+def extract_additional_ats_skills(result: str) -> List[str]:
+    section = extract_section_text(
+        result,
+        "Additional ATS Skills",
+        ["Professional Summary", "Professional Experience", "Education", "Systems / Tools", "ATS Analysis", "Cover Letter", "Final ATS Report"],
+    )
+    skills = []
+    for line in section.splitlines():
+        stripped = line.strip()
+        if not stripped:
+            continue
+        stripped = re.sub(r"^[\-\*\•\d\.\)\s]+", "", stripped).strip()
+        if stripped:
+            skills.append(stripped)
+    return skills
 
 
 def has_requested_cover_letter(output_scope: str) -> bool:
     return "cover letter" in (output_scope or "").lower()
 
 
+def validate_required_sections(result: str, output_scope: str) -> List[str]:
+    issues = []
+    lower_normalized_lines = {normalize_for_match(line.strip()) for line in (result or "").splitlines() if line.strip()}
+
+    for section in REQUIRED_CV_SECTIONS:
+        if normalize_for_match(section) not in lower_normalized_lines:
+            issues.append(f"Missing required CV section: {section}.")
+
+    if has_requested_cover_letter(output_scope) and normalize_for_match("Cover Letter") not in lower_normalized_lines:
+        issues.append("Cover Letter requested but Cover Letter section is missing.")
+
+    return issues
+
+
 def validate_generated_output(result: str, output_scope: str) -> Tuple[bool, List[str]]:
     issues = []
+    issues.extend(validate_required_sections(result, output_scope))
+
     cv_type = detect_cv_type(result)
     if cv_type not in EXPECTED_COUNTS:
         issues.append("SELECTED CV TYPE missing or unclear. Must be exactly Manager CV or Director CV.")
@@ -616,25 +788,35 @@ def validate_generated_output(result: str, output_scope: str) -> Tuple[bool, Lis
 
     role_achievements = extract_role_achievements(result)
     expected = EXPECTED_COUNTS[cv_type]
+
     for role, required_count in expected.items():
         actual_count = len(role_achievements.get(role, []))
         if required_count == 0 and actual_count > 0:
             issues.append(f"{role}: must not appear in {cv_type}; found {actual_count} achievement lines.")
         elif required_count > 0 and actual_count != required_count:
             issues.append(f"{role}: expected exactly {required_count} achievement lines; found {actual_count}.")
+
         for idx, achievement in enumerate(role_achievements.get(role, []), start=1):
             char_count = len(achievement)
+            if achievement.lower().startswith(("achievement:", "achievements:", "bullet:", "result:", "success:", "kpi:")):
+                issues.append(f"{role} achievement {idx}: forbidden label/prefix found. Achievements must be plain text only.")
+            if achievement.startswith(("-", "*", "•")) or re.match(r"^\d+[\.\)]\s+", achievement):
+                issues.append(f"{role} achievement {idx}: bullet symbol or numbered list found. Use plain text only.")
             if char_count < 170 or char_count > 190:
                 issues.append(f"{role} achievement {idx}: {char_count} characters. Required 170-190 including spaces.")
+
+    skills = extract_additional_ats_skills(result)
+    if len(skills) != 10:
+        issues.append(f"Additional ATS Skills: expected exactly 10 skills; found {len(skills)}.")
 
     if has_requested_cover_letter(output_scope):
         cover = extract_cover_letter_text(result)
         if not cover:
-            issues.append("Cover Letter requested but COVER LETTER section was not found.")
+            issues.append("Cover Letter requested but Cover Letter section was not found.")
         else:
             cover_len = len(cover)
-            if cover_len < 1790 or cover_len > 1810:
-                issues.append(f"Cover Letter length is {cover_len} characters. Required 1,790-1,810; target 1,800.")
+            if cover_len < 1795 or cover_len > 1805:
+                issues.append(f"Cover Letter length is {cover_len} characters. Required 1,795-1,805; target 1,800.")
             if re.search(r"\[[^\]]+\]", cover):
                 issues.append("Cover Letter contains placeholder text in square brackets.")
 
@@ -643,11 +825,13 @@ def validate_generated_output(result: str, output_scope: str) -> Tuple[bool, Lis
     if any(term in lower for term in external_terms):
         if not any(term in lower for term in ["simulated", "simulation", "internal", "ats-style", "style"]):
             issues.append("ATS validation references external tools but does not state that scores are internal simulations.")
+
     return len(issues) == 0, issues
 
 
 def build_repair_prompt(original_prompt: str, previous_result: str, issues: List[str], output_scope: str) -> str:
     issue_text = "\n".join(f"- {issue}" for issue in issues)
+
     return f"""
 Repair the previous output. Return only the corrected final output. Do not explain.
 
@@ -657,14 +841,19 @@ STRICT VALIDATION FAILURES:
 NON-NEGOTIABLE REPAIR RULES:
 - Keep facts faithful to the Experience Repository.
 - Keep the selected CV type unless it is missing or clearly wrong.
-- Use exact role headings from STRICT FORMAT RULES.
-- Every achievement line must start exactly with ACHIEVEMENT: .
-- Count only the text after ACHIEVEMENT: . It must be 170-190 characters including spaces.
+- Use the mandatory CV structure and section order.
+- Use exact role headings.
+- Each achievement must be plain text on its own line.
+- Do not write ACHIEVEMENT:, Achievement:, Bullet:, Result:, Success:, KPI: or any similar label.
+- Do not use bullet symbols, numbered lists or multiple achievements in one paragraph.
+- Every achievement line must be 170-190 characters including spaces.
 - Manager CV must have exactly 8 Trade Compliance Manager EMEA achievements. Not 7.
+- Manager CV must have exactly 7 Head of Logistics EMEA achievements. Not 6.
 - Director CV must not include Trade Compliance Manager EMEA.
-- Cover Letter, if requested, must be 1,790-1,810 characters including spaces, target 1,800.
-- ATS must be described as internal simulated ATS-style validation, not live website validation.
-- Additional ATS Skills must be extracted from the Job Description and supported by source facts.
+- Additional ATS Skills must contain exactly 10 skills extracted from the Job Description and supported by source facts.
+- Cover Letter, if requested, must be 1,795-1,805 characters including spaces, target 1,800.
+- ATS validation must be described as simulated/internal, not live website validation.
+- Final content must be easy to copy and paste into the CV template with formatting preserved as clean lines.
 
 ORIGINAL TASK:
 {original_prompt}
@@ -681,7 +870,8 @@ def generate_with_strict_validation(prompt: str, output_scope: str, primary_mode
     result, used_model, attempts = call_model(prompt, primary_model, failover_models)
     is_valid, issues = validate_generated_output(result, output_scope)
     repair_round = 0
-    while not is_valid and repair_round < 3:
+
+    while not is_valid and repair_round < 4:
         repair_round += 1
         repair_prompt = build_repair_prompt(prompt, result, issues, output_scope)
         repaired, repair_model, repair_attempts = call_model(repair_prompt, primary_model, failover_models)
@@ -689,6 +879,7 @@ def generate_with_strict_validation(prompt: str, output_scope: str, primary_mode
         result = repaired
         used_model = repair_model
         is_valid, issues = validate_generated_output(result, output_scope)
+
     return result, used_model, attempts, issues
 
 def build_context(instructions, master, manager, director, profile: str):
@@ -724,20 +915,25 @@ def strict_cv_prompt(context: str, job_description: str, language: str, output_s
 You are CareerOps Studio, an executive CV optimization engine. Do not describe yourself as AI in the output.
 
 PRIMARY OBJECTIVE
-Create a tailored CV from the Job Description using the Experience Repository as the only source of truth. The final output must satisfy strict machine validation.
+Create a tailored CV from the Job Description using the Experience Repository as the only source of truth. The final output must be easy to copy and paste into the existing CV template.
 
 ABSOLUTE RULES
 1. Never invent achievements, metrics, companies, roles, dates, systems, certifications, countries, savings, headcount, budget or KPIs.
 2. Select achievements only from the Experience Repository based on the Job Description.
 3. Choose Manager CV or Director CV using the Job Description and instructions.
 4. Follow exact role inclusion/exclusion and exact achievement counts.
-5. Every achievement line must start exactly with ACHIEVEMENT: .
-6. Count only the text after ACHIEVEMENT: . It must be 170-190 characters including spaces.
-7. Manager CV must include exactly 8 Trade Compliance Manager EMEA achievement lines, not 7.
-8. Additional ATS Skills must contain exactly 10 skills extracted from the Job Description and supported by candidate experience.
-9. Cover Letter, when requested, must be 1,790-1,810 characters including spaces. Target exactly 1,800.
-10. ATS validation is an internal simulation. Never claim it is coming from live external websites.
-11. Do all analysis internally. Do not show reasoning, scoring steps, keyword dumps, validation logs, draft alternatives or chain-of-thought.
+5. Each achievement must be plain text on its own separate line.
+6. Do not write ACHIEVEMENT:, Achievement:, Bullet:, Result:, Success:, KPI: or any similar label.
+7. Do not use bullet symbols, numbered lists or multiple achievements in one paragraph.
+8. Every achievement line must be 170-190 characters including spaces.
+9. Manager CV must include exactly 8 Trade Compliance Manager EMEA achievement lines, not 7.
+10. Manager CV must include exactly 7 Head of Logistics EMEA achievement lines, not 6.
+11. Additional ATS Skills must contain exactly 10 skills extracted from the Job Description and supported by candidate experience.
+12. Cover Letter, when requested, must be 1,795-1,805 characters including spaces. Target exactly 1,800.
+13. ATS validation is an internal simulation. Never claim it is coming from live external websites.
+14. Do all analysis internally. Do not show reasoning, scoring steps, keyword dumps, validation logs, draft alternatives or chain-of-thought.
+
+{MANDATORY_CV_TYPE_RULES}
 
 {MANDATORY_BULLET_COUNTS}
 
@@ -749,15 +945,28 @@ ABSOLUTE RULES
 
 {FINAL_OUTPUT_POLICY}
 
+MANDATORY CV STRUCTURE AND ORDER
+Inside FINAL TAILORED CV, use this exact order:
+Name
+Contact Details
+Additional ATS Skills
+Professional Summary
+Professional Experience
+Education
+Systems / Tools
+ATS Analysis
+Cover Letter only if requested
+
 MANDATORY INTERNAL PROCESS
 A. Extract company name, exact job title, seniority, location, industry, hard skills, soft skills, systems, certifications, leadership requirements and critical ATS keywords from the Job Description.
 B. Select Manager CV or Director CV.
 C. Apply mandatory role counts exactly.
 D. Select and rewrite achievements from source facts only.
 E. Validate each achievement line internally until it is 170-190 characters including spaces.
-F. If Cover Letter is requested, write it from Job Description + selected achievements and keep it 1,790-1,810 characters.
-G. Produce internal simulated ATS-style statistics and skill matching.
-H. Return only the final output sections.
+F. Place each achievement on a new line with no prefix and no bullet symbol.
+G. If Cover Letter is requested, write it from Job Description + selected achievements and keep it 1,795-1,805 characters.
+H. Produce internal simulated ATS-style statistics and skill matching.
+I. Return only the final output sections.
 
 OUTPUT REQUIRED
 {output_scope}
@@ -780,11 +989,15 @@ Validation must be an internal ATS-style simulation only. Do not claim live webs
 
 Check:
 - Manager CV vs Director CV selection
+- Mandatory CV structure and order
 - Exact mandatory role inclusion/exclusion
 - Exact number of achievement lines per role
 - Trade Compliance Manager EMEA must be exactly 8 achievements for Manager CV
-- Every achievement line must be 170-190 characters including spaces after ACHIEVEMENT: prefix
-- Cover Letter length when present: 1,790-1,810 characters including spaces
+- Head of Logistics EMEA must be exactly 7 achievements for Manager CV
+- Every achievement line must be 170-190 characters including spaces
+- No achievement may include ACHIEVEMENT:, Achievement:, Bullet:, Result:, Success:, KPI: or similar label
+- No achievement may use bullet symbols or numbered lists
+- Cover Letter length when present: 1,795-1,805 characters including spaces
 - Hard skills extracted from the Job Description
 - Soft skills extracted from the Job Description
 - Systems, tools, certifications and industry keywords extracted from the Job Description
@@ -795,6 +1008,8 @@ Check:
 Never claim 100% unless every critical keyword is naturally covered.
 Return concise corrections only.
 Language: {language}
+
+{MANDATORY_CV_TYPE_RULES}
 
 {MANDATORY_BULLET_COUNTS}
 
