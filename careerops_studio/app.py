@@ -1,4 +1,5 @@
 import os
+import re
 import json
 import time
 from datetime import datetime
@@ -46,6 +47,140 @@ CONTEXT_PROFILES = {
     "Balanced": {"instructions": 14000, "master": 48000, "manager": 12000, "director": 12000},
     "Deep": {"instructions": 24000, "master": 80000, "manager": 18000, "director": 18000},
 }
+
+MANDATORY_BULLET_COUNTS = """
+MANDATORY BULLET COUNTS
+
+Director CV:
+- Sr. EMEA Transport Manager: exactly 7 achievement lines
+- Director Logistics: exactly 8 achievement lines
+- Trade Compliance Manager EMEA: do not include this role
+- Head of Logistics EMEA: exactly 7 achievement lines
+- Sr. EMEA Logistics & Spare Parts Inventory Manager: exactly 5 achievement lines
+
+Manager CV:
+- Sr. EMEA Transport Manager: exactly 7 achievement lines
+- Director Logistics: do not include this role
+- Trade Compliance Manager EMEA: exactly 8 achievement lines
+- Head of Logistics EMEA: exactly 7 achievement lines
+- Sr. EMEA Logistics & Spare Parts Inventory Manager: exactly 5 achievement lines
+
+These counts are mandatory and must be followed exactly.
+For Manager CV, Trade Compliance Manager EMEA must have exactly 8 achievement lines, not 7.
+Do not add extra roles. Do not add fewer or more achievement lines.
+"""
+
+FINAL_OUTPUT_POLICY = """
+FINAL OUTPUT POLICY
+
+Process internally and do not show reasoning, scoring steps, long analysis, internal ranking, or achievement selection process.
+
+The final answer must contain only:
+1. Selected CV Type: Manager CV or Director CV
+2. ATS Validation Status table with key scores/statistics only
+3. Final tailored CV
+4. Cover Letter only when requested in the output package
+5. Final ATS Report with realistic simulated scores only
+
+Do not include:
+- Detailed reasoning
+- Full keyword extraction
+- Full achievement scoring
+- Long explanations
+- Internal validation steps
+- Draft alternatives
+"""
+
+COVER_LETTER_EXTRACTION_RULES = """
+COVER LETTER EXTRACTION RULES
+
+The cover letter must be generated from the Job Description and the selected verified achievements.
+
+Internal extraction requirements:
+- Extract the company name from the Job Description whenever available.
+- Extract the exact job title from the Job Description whenever available.
+- Extract the hiring context, location, seniority, department and business area whenever available.
+- Extract the most important responsibilities, hard skills, soft skills, systems, certifications and ATS keywords.
+- Use only achievements selected for the tailored CV.
+- Never use generic placeholders if the information exists in the Job Description.
+- Never write [Company Name], [Hiring Manager Name], [Job Title], or similar placeholders in the final output.
+- If the company name is available, address the letter to: Dear Hiring Team at [Company Name],
+- If the company name is not available, address the letter to: Dear Hiring Manager,
+- If the job title is available, mention the exact job title naturally in the opening paragraph.
+- If the job title is not available, infer the closest professional title from the Job Description.
+- The letter must be personalized to the role requirements, company context, ATS keywords and selected achievements.
+- The letter must not invent achievements, metrics, certifications, systems, names or company information.
+- The final cover letter must be 1,790 to 1,810 characters including spaces.
+- Target exactly 1,800 characters including spaces.
+- If the cover letter is above 1,810 characters, shorten it before final output.
+- If the cover letter is below 1,790 characters, expand it before final output.
+- Do not show character counts in the final output.
+"""
+
+ATS_VALIDATION_RULES = """
+ATS VALIDATION RULES
+
+The ATS validation is a simulation based on the Job Description, the generated CV, and the operating instructions.
+It is not a live connection to LinkedIn, Jobscan, SkillSyncer, Resume Worded, Rezi or any external website.
+
+The system must internally simulate these ATS-style checks:
+- LinkedIn ATS style keyword coverage
+- Jobscan style hard skill and job title match
+- SkillSyncer style skill extraction and skill matching
+- Resume Worded style impact, clarity and leadership match
+- Rezi style ATS formatting and keyword alignment
+
+Skill extraction requirements:
+- Extract hard skills directly from the Job Description.
+- Extract soft skills directly from the Job Description.
+- Extract tools, systems, certifications, industries and operational keywords directly from the Job Description.
+- Match extracted skills against the tailored CV.
+- ATS skills shown in the CV must be directly aligned with the extracted Job Description skills.
+- Additional ATS Skills must contain exactly 10 skills.
+- Do not invent skills that are not supported by the Job Description or the candidate experience.
+
+Final ATS report requirements:
+- Keep it concise.
+- Show realistic scores only.
+- Never claim the scores came from live external sites.
+- Never claim 100% unless every critical keyword is naturally covered.
+"""
+
+STRICT_OUTPUT_FORMAT_RULES = """
+STRICT OUTPUT FORMAT RULES
+
+The final response must follow this exact structure:
+
+SELECTED CV TYPE
+Manager CV
+or
+Director CV
+
+ATS VALIDATION STATUS
+A concise table only.
+
+FINAL TAILORED CV
+Use the exact role headings below when included:
+Sr. EMEA Transport Manager
+Director Logistics
+Trade Compliance Manager EMEA
+Head of Logistics EMEA
+Sr. EMEA Logistics & Spare Parts Inventory Manager
+
+Each achievement line must start with "ACHIEVEMENT: ".
+Each achievement line must be 170 to 190 characters including spaces AFTER the "ACHIEVEMENT: " prefix is removed.
+Do not use bullet symbols.
+
+COVER LETTER
+Only include this section when requested.
+The cover letter body must be 1,790 to 1,810 characters including spaces, target exactly 1,800.
+Do not include placeholder text.
+
+FINAL ATS REPORT
+A concise report only.
+
+Do not show internal reasoning, keyword dumps, scoring logs, chain-of-thought, draft alternatives or validation steps.
+"""
 
 
 def load_history() -> List[Dict]:
@@ -156,78 +291,213 @@ def inject_css():
         """
         <style>
         :root {
-            --bg: #070910;
-            --panel: rgba(16, 19, 27, .86);
-            --panel2: rgba(22, 27, 38, .84);
-            --panel3: rgba(255,255,255,.045);
-            --border: rgba(230, 210, 170, .16);
-            --border2: rgba(230, 210, 170, .28);
-            --text: #f7f1e8;
-            --muted: rgba(247,241,232,.66);
-            --gold: #d6b56e;
-            --gold2: #f2d99e;
-            --blue: #8fb4dc;
-            --green: #94d6a8;
-            --red: #ff7272;
+            --bg: #f6f7fb;
+            --surface: #ffffff;
+            --surface-2: #f9fafc;
+            --text: #182230;
+            --muted: #667085;
+            --border: #d9e0ea;
+            --border-soft: #edf0f5;
+            --primary: #1f4e79;
+            --primary-2: #173b5c;
+            --success: #15803d;
+            --danger: #b42318;
+            --shadow: 0 10px 30px rgba(16, 24, 40, .07);
         }
         .stApp {
             color: var(--text);
-            background:
-              radial-gradient(circle at top left, rgba(214,181,110,.16), transparent 30%),
-              radial-gradient(circle at 90% 12%, rgba(143,180,220,.11), transparent 28%),
-              linear-gradient(135deg, #05060a 0%, #0b1019 45%, #080a0f 100%);
+            background: linear-gradient(180deg, #f8fafc 0%, #eef2f7 100%);
         }
-        [data-testid="stHeader"] { background: rgba(0,0,0,0); }
-        .block-container { max-width: 1240px; padding-top: 1.2rem; }
+        [data-testid="stHeader"] {
+            background: rgba(248, 250, 252, .92);
+            backdrop-filter: blur(10px);
+            border-bottom: 1px solid var(--border-soft);
+        }
+        .block-container {
+            max-width: 1180px;
+            padding-top: 1.4rem;
+            padding-bottom: 2rem;
+        }
         [data-testid="stSidebar"] {
-            background: linear-gradient(180deg, rgba(9,12,18,.99), rgba(13,17,25,.94));
-            border-right: 1px solid var(--border);
+            background: #0f172a;
+            border-right: 1px solid rgba(255,255,255,.08);
         }
-        [data-testid="stSidebar"] * { color: var(--text); }
-        .studio-shell {
-            border: 1px solid var(--border);
-            background: linear-gradient(135deg, rgba(255,255,255,.06), rgba(255,255,255,.025));
-            border-radius: 28px;
-            padding: 22px 26px;
-            box-shadow: 0 26px 80px rgba(0,0,0,.34);
+        [data-testid="stSidebar"] * { color: #f8fafc; }
+        [data-testid="stSidebar"] .stCaption,
+        [data-testid="stSidebar"] small,
+        [data-testid="stSidebar"] p {
+            color: rgba(248,250,252,.68) !important;
+        }
+        .app-header {
+            background: var(--surface);
+            border: 1px solid var(--border-soft);
+            border-radius: 18px;
+            padding: 24px 28px;
+            box-shadow: var(--shadow);
             margin-bottom: 18px;
         }
-        .studio-top { display:flex; justify-content:space-between; align-items:flex-start; gap:18px; }
-        .studio-brand { color:var(--gold); letter-spacing:.24em; text-transform:uppercase; font-size:.75rem; font-weight:700; }
-        .studio-title { margin-top:8px; font-size:2.3rem; line-height:1.02; letter-spacing:-.055em; font-weight:850; }
-        .studio-subtitle { color:var(--muted); margin-top:10px; max-width:760px; font-size:.98rem; }
-        .status-pill { border:1px solid var(--border2); background:rgba(214,181,110,.12); border-radius:999px; padding:8px 12px; color:var(--gold2); font-size:.78rem; white-space:nowrap; }
-        .mini-grid { display:grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap:12px; margin: 18px 0 2px; }
-        .mini-card { border:1px solid var(--border); background:rgba(255,255,255,.035); border-radius:18px; padding:14px 16px; }
-        .mini-label { color:var(--muted); font-size:.72rem; letter-spacing:.13em; text-transform:uppercase; }
-        .mini-value { margin-top:6px; font-size:1.03rem; font-weight:780; }
-        .card {
-            border:1px solid var(--border); background:var(--panel); border-radius:24px;
-            padding:24px 26px; box-shadow: 0 20px 60px rgba(0,0,0,.24); margin-bottom:16px;
+        .app-eyebrow {
+            color: var(--primary);
+            font-size: .76rem;
+            font-weight: 800;
+            letter-spacing: .16em;
+            text-transform: uppercase;
+            margin-bottom: 8px;
         }
-        .section-title { font-size:1.35rem; font-weight:820; letter-spacing:-.035em; margin:0 0 6px; }
-        .section-note { color:var(--muted); margin:0 0 18px; }
-        .result-shell { border:1px solid var(--border); background:rgba(255,255,255,.055); border-radius:22px; padding:24px; margin-top:18px; }
-        .audit-box { border:1px solid rgba(148,214,168,.25); background:rgba(148,214,168,.08); border-radius:16px; padding:12px 14px; margin:14px 0; color:rgba(247,241,232,.88); }
-        .footer-note { text-align:center; color:var(--muted); font-size:.80rem; padding:26px 0 10px; }
-        .stButton > button, .stDownloadButton > button {
-            border-radius: 14px !important; border:1px solid var(--border) !important; font-weight:750 !important;
-            padding:.72rem 1rem !important;
+        .app-title {
+            font-size: 2.05rem;
+            line-height: 1.1;
+            font-weight: 820;
+            letter-spacing: -.045em;
+            margin: 0;
+            color: #101828;
+        }
+        .app-subtitle {
+            margin-top: 10px;
+            color: var(--muted);
+            max-width: 760px;
+            font-size: .98rem;
+            line-height: 1.55;
+        }
+        .status-row {
+            display: grid;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            gap: 12px;
+            margin: 0 0 18px 0;
+        }
+        .status-card {
+            background: var(--surface);
+            border: 1px solid var(--border-soft);
+            border-radius: 14px;
+            padding: 14px 16px;
+            box-shadow: 0 4px 16px rgba(16, 24, 40, .045);
+        }
+        .status-label {
+            color: var(--muted);
+            font-size: .72rem;
+            letter-spacing: .12em;
+            text-transform: uppercase;
+            font-weight: 750;
+        }
+        .status-value {
+            color: #101828;
+            font-size: .98rem;
+            font-weight: 760;
+            margin-top: 6px;
+            overflow-wrap: anywhere;
+        }
+        .card {
+            background: var(--surface);
+            border: 1px solid var(--border-soft);
+            border-radius: 18px;
+            padding: 24px 26px;
+            box-shadow: var(--shadow);
+            margin-bottom: 16px;
+        }
+        .section-title {
+            font-size: 1.28rem;
+            font-weight: 820;
+            letter-spacing: -.03em;
+            color: #101828;
+            margin: 0 0 6px 0;
+        }
+        .section-note {
+            color: var(--muted);
+            margin: 0 0 18px 0;
+            line-height: 1.5;
+        }
+        .result-shell {
+            background: var(--surface);
+            border: 1px solid var(--border-soft);
+            border-radius: 18px;
+            padding: 26px;
+            margin-top: 18px;
+            box-shadow: var(--shadow);
+            color: var(--text);
+        }
+        .result-shell h1,
+        .result-shell h2,
+        .result-shell h3 { color: #101828; }
+        .audit-box {
+            border: 1px solid #bbf7d0;
+            background: #f0fdf4;
+            color: #14532d;
+            border-radius: 14px;
+            padding: 12px 14px;
+            margin: 14px 0;
+            font-size: .92rem;
+        }
+        .footer-note {
+            text-align:center;
+            color: var(--muted);
+            font-size:.80rem;
+            padding:24px 0 10px;
+        }
+        .stButton > button,
+        .stDownloadButton > button {
+            border-radius: 12px !important;
+            border: 1px solid var(--border) !important;
+            font-weight: 750 !important;
+            padding: .72rem 1rem !important;
+            background: var(--surface) !important;
+            color: var(--text) !important;
+        }
+        .stButton > button:hover,
+        .stDownloadButton > button:hover {
+            border-color: var(--primary) !important;
+            color: var(--primary) !important;
         }
         .stButton > button[kind="primary"] {
-            color:#080910 !important; border:0 !important;
-            background: linear-gradient(90deg, #f3d995, #caa760) !important;
+            color: #ffffff !important;
+            border: 0 !important;
+            background: linear-gradient(90deg, var(--primary), var(--primary-2)) !important;
+            box-shadow: 0 8px 20px rgba(31, 78, 121, .22);
         }
-        textarea, input, .stTextArea textarea, .stTextInput input { border-radius: 16px !important; }
-        [data-testid="stFileUploader"] { border:1px dashed rgba(214,181,110,.28); background:rgba(255,255,255,.035); border-radius:18px; padding:12px; }
-        div[data-testid="stTabs"] button { border-radius:999px !important; padding:11px 18px !important; }
-        hr { border-color: var(--border); }
-        @media (max-width: 900px) { .mini-grid { grid-template-columns: repeat(2, minmax(0,1fr)); } .studio-title { font-size:1.8rem; } }
+        textarea,
+        input,
+        .stTextArea textarea,
+        .stTextInput input {
+            border-radius: 12px !important;
+            border-color: var(--border) !important;
+            background: #ffffff !important;
+            color: var(--text) !important;
+        }
+        [data-baseweb="select"] > div {
+            border-radius: 12px !important;
+            border-color: var(--border) !important;
+            background: #ffffff !important;
+        }
+        [data-testid="stFileUploader"] {
+            border: 1px dashed rgba(255,255,255,.28);
+            background: rgba(255,255,255,.05);
+            border-radius: 14px;
+            padding: 10px;
+        }
+        div[data-testid="stTabs"] button {
+            border-radius: 999px !important;
+            padding: 10px 18px !important;
+            color: var(--text) !important;
+        }
+        div[data-testid="stTabs"] button[aria-selected="true"] {
+            background: #e8eef6 !important;
+            color: var(--primary) !important;
+            font-weight: 800 !important;
+        }
+        hr { border-color: var(--border-soft); }
+        .stMetric {
+            background: var(--surface-2);
+            border: 1px solid var(--border-soft);
+            border-radius: 12px;
+            padding: 12px;
+        }
+        @media (max-width: 900px) {
+            .status-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+            .app-title { font-size: 1.62rem; }
+        }
         </style>
         """,
         unsafe_allow_html=True,
     )
-
 
 def load_template_text(filename: str, fallback: str = "") -> str:
     path = TEMPLATE_DIR / filename
@@ -443,6 +713,177 @@ def call_model(prompt: str, primary_model: str, failover_models: List[str]) -> T
         + "\n".join(attempts[-20:])
     )
 
+def detect_cv_type(result: str) -> str:
+    lower = (result or "").lower()
+    if "selected cv type" in lower:
+        selected_block = lower.split("selected cv type", 1)[1][:200]
+        if "director cv" in selected_block:
+            return "Director CV"
+        if "manager cv" in selected_block:
+            return "Manager CV"
+    if "director cv" in lower and "manager cv" not in lower:
+        return "Director CV"
+    if "manager cv" in lower and "director cv" not in lower:
+        return "Manager CV"
+    return "Unknown"
+
+
+ROLE_NAMES = [
+    "Sr. EMEA Transport Manager",
+    "Director Logistics",
+    "Trade Compliance Manager EMEA",
+    "Head of Logistics EMEA",
+    "Sr. EMEA Logistics & Spare Parts Inventory Manager",
+]
+
+EXPECTED_COUNTS = {
+    "Director CV": {
+        "Sr. EMEA Transport Manager": 7,
+        "Director Logistics": 8,
+        "Trade Compliance Manager EMEA": 0,
+        "Head of Logistics EMEA": 7,
+        "Sr. EMEA Logistics & Spare Parts Inventory Manager": 5,
+    },
+    "Manager CV": {
+        "Sr. EMEA Transport Manager": 7,
+        "Director Logistics": 0,
+        "Trade Compliance Manager EMEA": 8,
+        "Head of Logistics EMEA": 7,
+        "Sr. EMEA Logistics & Spare Parts Inventory Manager": 5,
+    },
+}
+
+
+def normalize_role_name(line: str) -> str:
+    return re.sub(r"^[#\-\*\s\d\.\)]+", "", line or "").replace(":", "").strip()
+
+
+def extract_role_achievements(result: str) -> Dict[str, List[str]]:
+    role_hits = {role: [] for role in ROLE_NAMES}
+    current_role = None
+
+    for raw_line in (result or "").splitlines():
+        line = raw_line.strip()
+        normalized = normalize_role_name(line)
+
+        for role in ROLE_NAMES:
+            if normalized.lower() == role.lower():
+                current_role = role
+                break
+
+        if not current_role:
+            continue
+
+        if line.upper().startswith("ACHIEVEMENT:"):
+            achievement = line.split(":", 1)[1].strip()
+            role_hits[current_role].append(achievement)
+
+    return role_hits
+
+
+def extract_cover_letter_text(result: str) -> str:
+    text = result or ""
+    lower = text.lower()
+
+    if "cover letter" not in lower:
+        return ""
+
+    start = lower.find("cover letter")
+    after = text[start:]
+    lines = after.splitlines()
+
+    if lines:
+        lines = lines[1:]
+
+    stop_markers = ["FINAL ATS REPORT", "ATS REPORT", "FINAL REPORT"]
+    collected = []
+
+    for line in lines:
+        stripped = line.strip()
+        if stripped.upper() in stop_markers:
+            break
+        collected.append(line)
+
+    return "\n".join(collected).strip()
+
+
+def validate_generated_output(result: str, output_scope: str) -> Tuple[bool, List[str]]:
+    issues = []
+    cv_type = detect_cv_type(result)
+
+    if cv_type not in EXPECTED_COUNTS:
+        issues.append("Selected CV Type is missing or unclear. Must be exactly Manager CV or Director CV.")
+        return False, issues
+
+    role_achievements = extract_role_achievements(result)
+    expected = EXPECTED_COUNTS[cv_type]
+
+    for role, required_count in expected.items():
+        actual_count = len(role_achievements.get(role, []))
+
+        if required_count == 0 and actual_count > 0:
+            issues.append(f"{role}: must not be included for {cv_type}, but {actual_count} achievement lines were found.")
+
+        if required_count > 0 and actual_count != required_count:
+            issues.append(f"{role}: expected exactly {required_count} achievement lines, found {actual_count}.")
+
+        for index, achievement in enumerate(role_achievements.get(role, []), start=1):
+            char_count = len(achievement)
+            if char_count < 170 or char_count > 190:
+                issues.append(f"{role} achievement {index}: {char_count} characters. Required 170-190 including spaces.")
+
+    if "Cover Letter" in output_scope or "Cover Letter" in (result or ""):
+        cover_letter = extract_cover_letter_text(result)
+
+        if cover_letter:
+            cover_len = len(cover_letter)
+            if cover_len < 1790 or cover_len > 1810:
+                issues.append(f"Cover Letter length is {cover_len} characters. Required 1,790-1,810, target 1,800.")
+        elif "Cover Letter" in output_scope:
+            issues.append("Cover Letter was requested but not found.")
+
+    lower = (result or "").lower()
+    if any(site in lower for site in ["linkedin ats", "jobscan", "skillsyncer", "resume worded", "rezi"]):
+        if not any(term in lower for term in ["simulation", "simulated", "ats-style", "internal"]):
+            issues.append("ATS validation mentions external ATS sites but does not clearly state that scores are simulated internally.")
+
+    return len(issues) == 0, issues
+
+
+def build_repair_prompt(original_prompt: str, previous_result: str, issues: List[str], output_scope: str) -> str:
+    issue_text = "\n".join(f"- {issue}" for issue in issues)
+
+    return f"""
+You must repair the previous output. Do not explain the repair.
+
+The previous output failed strict validation.
+
+Validation issues:
+{issue_text}
+
+Hard requirements:
+- Use the same source facts only.
+- Keep the same selected CV type unless the previous selection was clearly wrong.
+- Use exact role headings.
+- Every achievement line must start with "ACHIEVEMENT: ".
+- Count characters after the "ACHIEVEMENT: " prefix only.
+- Every achievement line must be 170-190 characters including spaces.
+- Manager CV: Trade Compliance Manager EMEA must have exactly 8 achievement lines.
+- Director CV: Trade Compliance Manager EMEA must not be included.
+- Cover Letter, if included, must be 1,790-1,810 characters including spaces, target 1,800.
+- ATS validation must be described as simulated/internal, not live website data.
+- Return only the final corrected output.
+
+Original task:
+{original_prompt}
+
+Previous output:
+{previous_result}
+
+Output package:
+{output_scope}
+"""
+
 def build_context(instructions, master, manager, director, profile: str):
     limits = CONTEXT_PROFILES.get(profile, CONTEXT_PROFILES["Balanced"])
     return f"""
@@ -476,29 +917,48 @@ def strict_cv_prompt(context: str, job_description: str, language: str, output_s
 You are CareerOps Studio, an executive CV optimization engine. Do not describe yourself as AI in the output.
 
 PRIMARY OBJECTIVE
-Create a tailored CV from the Job Description using the Experience Repository as the only source of truth. The user normally copies the output into an existing CV, so the final CV text must be clean, usable, and faithful to the candidate's real achievements.
+Create a tailored CV from the Job Description using the Experience Repository as the only source of truth. The final CV text must be clean, usable, ATS-aligned and faithful to the candidate's real achievements.
 
 ABSOLUTE RULES
 1. Never invent achievements, metrics, companies, roles, dates, systems, certifications, countries, savings, headcount, budget or KPIs.
 2. Select the best achievements from the Experience Repository based on the Job Description.
-3. You may adapt wording, merge compatible evidence, and improve ATS keyword alignment, but facts and metrics must remain faithful.
-4. Keep the candidate's roles; do not change role titles unless the template explicitly contains that role title.
-5. Choose Manager CV or Director CV using the rules in the instructions.
-6. Every achievement line in Professional Experience must be 170-190 characters including spaces.
-7. Final CV section must not use bullet symbols. Put each achievement on its own line.
-8. No blank lines between achievements inside the same role. Use one blank line between roles.
-9. Additional ATS Skills must contain exactly 10 skills in a clean vertical list.
-10. ATS score must be realistic. Never claim 100% unless every critical keyword is naturally covered.
-11. Cover letter must be approximately 1800 characters including spaces, same language as the job description unless the user selected another language.
+3. Keep all facts and metrics faithful to the Experience Repository.
+4. Choose Manager CV or Director CV using the instructions and the Job Description.
+5. Follow mandatory role inclusion/exclusion and exact achievement counts.
+6. Each achievement line must start with "ACHIEVEMENT: ".
+7. Count characters after the "ACHIEVEMENT: " prefix only.
+8. Every achievement line must be 170-190 characters including spaces.
+9. Manager CV must include exactly 8 Trade Compliance Manager EMEA achievements, not 7.
+10. Additional ATS Skills must contain exactly 10 skills extracted from the Job Description and supported by candidate experience.
+11. ATS validation is simulated internally; do not claim it comes from live external ATS websites.
+12. Cover Letter must be 1,790-1,810 characters including spaces, target exactly 1,800, same language as the job description unless the user selected another language.
+13. All analysis, scoring, ranking and validation must be done internally. Do not expose internal reasoning in the final output.
 
-MANDATORY PROCESS
-A. Analyze the Job Description: title, seniority, industry, hard skills, soft skills, systems, certifications, leadership requirements and critical ATS keywords.
-B. Select CV Type: Manager or Director, with a short reason.
-C. Score and select achievements by keyword match, responsibility match, industry match, leadership match and systems/tools match.
-D. Build the CV using the selected template and the selected achievements only.
-E. Run the optimization loop: identify keyword gaps, inject missing keywords naturally, and recalculate ATS.
-F. Validate all achievement character counts internally and rewrite until compliant.
-G. Return a final ATS report with realistic scores.
+MANDATORY BULLET COUNTS
+{MANDATORY_BULLET_COUNTS}
+
+FINAL OUTPUT POLICY
+{FINAL_OUTPUT_POLICY}
+
+COVER LETTER RULES
+{COVER_LETTER_EXTRACTION_RULES}
+
+ATS VALIDATION RULES
+{ATS_VALIDATION_RULES}
+
+STRICT OUTPUT FORMAT
+{STRICT_OUTPUT_FORMAT_RULES}
+
+MANDATORY PROCESS - INTERNAL ONLY
+A. Analyze the Job Description internally: company name, exact job title, seniority, location, industry, hard skills, soft skills, systems, certifications, leadership requirements and critical ATS keywords.
+B. Extract ATS skills from the Job Description and use them to evaluate CV alignment.
+C. Select CV Type internally: Manager CV or Director CV.
+D. Apply the mandatory bullet count table exactly.
+E. Score and select achievements internally by keyword match, responsibility match, industry match, leadership match and systems/tools match.
+F. Build the CV using selected template and selected achievements only.
+G. Build the Cover Letter only when requested, using extracted company name, exact job title, ATS keywords and selected achievements; keep it 1,790-1,810 characters.
+H. Run the optimization loop internally and validate every achievement character count.
+I. Return only the concise final output requested by FINAL_OUTPUT_POLICY.
 
 OUTPUT REQUIRED
 {output_scope}
@@ -512,7 +972,6 @@ CONTEXT FILES
 JOB DESCRIPTION
 {job_description}
 """
-
 
 def ats_validation_prompt(context: str, cv_text: str, job_description: str, language: str) -> str:
     return f"""
@@ -528,9 +987,9 @@ Check:
 - Whether the CV uses only Experience Repository facts
 - Whether Professional Experience achievement lines are 170-190 characters
 - Whether Additional ATS Skills has exactly 10 skills
-- Realistic ATS score across LinkedIn ATS, Jobscan, SkillSyncer, Resume Worded and Rezi
+- Realistic simulated ATS score across LinkedIn ATS-style, Jobscan-style, SkillSyncer-style, Resume Worded-style and Rezi-style checks
 
-Do not claim 100% unless every critical keyword is covered.
+Do not claim 100% unless every critical keyword is covered. Do not claim validation comes from live external websites.
 Return practical corrections if needed.
 Language: {language}
 
@@ -548,32 +1007,42 @@ CV TO VALIDATE
 def show_header(provider_status: str, context_profile: str, selected_model: str):
     st.markdown(
         f"""
-        <div class="studio-shell">
-            <div class="studio-top">
-                <div>
-                    <div class="studio-brand">{APP_TITLE}</div>
-                    <div class="studio-title">Executive CV optimization workspace.</div>
-                    <div class="studio-subtitle">Map real achievements to job requirements, route Manager / Director CVs, validate ATS fit, and export client-ready files.</div>
-                </div>
-                <div class="status-pill">{provider_status}</div>
+        <div class="app-header">
+            <div class="app-eyebrow">{APP_TITLE}</div>
+            <h1 class="app-title">Executive resume optimization workspace</h1>
+            <div class="app-subtitle">
+                Generate tailored CVs, validate ATS alignment, select the correct Manager or Director route,
+                and export client-ready documents from verified source material.
             </div>
-            <div class="mini-grid">
-                <div class="mini-card"><div class="mini-label">Primary model</div><div class="mini-value">{selected_model}</div></div>
-                <div class="mini-card"><div class="mini-label">Context mode</div><div class="mini-value">{context_profile}</div></div>
-                <div class="mini-card"><div class="mini-label">Routing</div><div class="mini-value">Manager / Director</div></div>
-                <div class="mini-card"><div class="mini-label">Exports</div><div class="mini-value">PDF / DOCX / TXT</div></div>
+        </div>
+
+        <div class="status-row">
+            <div class="status-card">
+                <div class="status-label">Provider</div>
+                <div class="status-value">{provider_status}</div>
+            </div>
+            <div class="status-card">
+                <div class="status-label">Primary model</div>
+                <div class="status-value">{selected_model}</div>
+            </div>
+            <div class="status-card">
+                <div class="status-label">Context mode</div>
+                <div class="status-value">{context_profile}</div>
+            </div>
+            <div class="status-card">
+                <div class="status-label">Output</div>
+                <div class="status-value">PDF · DOCX · TXT</div>
             </div>
         </div>
         """,
         unsafe_allow_html=True,
     )
 
-
 st.set_page_config(page_title=APP_TITLE, page_icon="◆", layout="wide")
 inject_css()
 
 with st.sidebar:
-    st.markdown("### Workspace")
+    st.markdown("### Settings")
     primary_model = st.selectbox("Primary model", MODEL_OPTIONS, index=0)
     failover_models = st.multiselect(
         "Failover models",
@@ -589,7 +1058,7 @@ with st.sidebar:
     st.divider()
     render_history_panel()
     st.divider()
-    st.markdown("### Source documents")
+    st.markdown("### Source files")
     instructions_file = st.file_uploader("Instructions", type=["txt", "md", "docx", "pdf"], key="instructions")
     master_file = st.file_uploader("Experience Repository", type=["txt", "md", "docx", "pdf"], key="master")
     manager_file = st.file_uploader("Manager CV Template", type=["txt", "md", "docx", "pdf"], key="manager")
@@ -623,12 +1092,12 @@ if st.session_state.get("loaded_history_item"):
             f"careerops_history_{loaded.get('id', datetime.now().strftime('%Y%m%d_%H%M'))}",
         )
 
-main_tab, validate_tab, files_tab = st.tabs(["Application workspace", "ATS validation", "Source control"])
+main_tab, validate_tab, files_tab = st.tabs(["Generate CV", "Validate ATS", "Source Files"])
 
 with main_tab:
     st.markdown('<div class="card">', unsafe_allow_html=True)
-    st.markdown('<div class="section-title">Create tailored CV</div>', unsafe_allow_html=True)
-    st.markdown('<p class="section-note">Paste one complete job description. The system selects the CV type and maps the strongest verified achievements to the target role.</p>', unsafe_allow_html=True)
+    st.markdown('<div class="section-title">Generate tailored CV</div>', unsafe_allow_html=True)
+    st.markdown('<p class="section-note">Paste one complete job description. The system selects Manager CV or Director CV, enforces exact role counts, validates every achievement at 170-190 characters including spaces, extracts ATS skills from the job description, and maps only verified achievements.</p>', unsafe_allow_html=True)
     job_description = st.text_area("Job description", height=360, placeholder="Paste the full job description here...")
     c1, c2 = st.columns([1, 1])
     with c1:
@@ -637,12 +1106,12 @@ with main_tab:
         output_scope = st.selectbox(
             "Output package",
             [
-                "Full package: Job Analysis, ATS Validation Status, Tailored CV, Cover Letter, Final ATS Report",
+                "ATS Validation Status, Tailored CV, Cover Letter (strict 1800 chars), Final ATS Report",
                 "Tailored CV only with ATS Validation Status",
                 "ATS Analysis and achievement recommendations only",
             ],
         )
-    generate = st.button("Generate client-ready CV", type="primary", use_container_width=True)
+    generate = st.button("Generate CV", type="primary", use_container_width=True)
     st.markdown('</div>', unsafe_allow_html=True)
 
     if generate:
@@ -652,9 +1121,28 @@ with main_tab:
             st.error("The Experience Repository is missing or too small. Upload the real Master Experience File before generating a CV.")
         else:
             prompt = strict_cv_prompt(context, job_description, language, output_scope)
-            with st.spinner("Building the tailored CV and testing failover if needed..."):
+            with st.spinner("Building the tailored CV and running strict validation..."):
                 try:
                     result, used_model, attempts = call_model(prompt, primary_model, failover_models)
+
+                    is_valid, issues = validate_generated_output(result, output_scope)
+
+                    repair_round = 0
+                    while not is_valid and repair_round < 2:
+                        repair_round += 1
+                        repair_prompt = build_repair_prompt(prompt, result, issues, output_scope)
+                        repaired_result, repair_model, repair_attempts = call_model(repair_prompt, primary_model, failover_models)
+                        attempts.extend(repair_attempts)
+                        used_model = repair_model
+                        result = repaired_result
+                        is_valid, issues = validate_generated_output(result, output_scope)
+
+                    if not is_valid:
+                        st.warning("Strict validation still found issues. Review the validation list below.")
+                        with st.expander("Strict validation issues"):
+                            for issue in issues:
+                                st.write("- " + issue)
+
                 except Exception as exc:
                     st.error(str(exc))
                     st.stop()
@@ -680,7 +1168,7 @@ with validate_tab:
     st.markdown('<p class="section-note">Use this when the client already has a CV and wants ATS match, keyword gaps and role alignment checked.</p>', unsafe_allow_html=True)
     existing_cv = st.text_area("Existing CV text", height=260, value=st.session_state.get("last_result", ""))
     validation_job = st.text_area("Job description for validation", height=240, value=st.session_state.get("last_job", ""))
-    validate = st.button("Run ATS validation", type="primary", use_container_width=True)
+    validate = st.button("Validate CV", type="primary", use_container_width=True)
     st.markdown('</div>', unsafe_allow_html=True)
     if validate:
         if not existing_cv.strip() or not validation_job.strip():
@@ -709,7 +1197,7 @@ with validate_tab:
 
 with files_tab:
     st.markdown('<div class="card">', unsafe_allow_html=True)
-    st.markdown('<div class="section-title">Loaded source files</div>', unsafe_allow_html=True)
+    st.markdown('<div class="section-title">Source file status</div>', unsafe_allow_html=True)
     st.markdown('<p class="section-note">Confirm the source material was loaded correctly. The Experience Repository remains the source of truth.</p>', unsafe_allow_html=True)
     c1, c2, c3, c4 = st.columns(4)
     c1.metric("Instructions", f"{len(instructions_text):,}".replace(",", "."))
