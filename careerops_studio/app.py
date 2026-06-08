@@ -122,7 +122,7 @@ Do not add extra roles. Do not omit required roles. Do not create fewer or more 
 STRICT_FORMAT_RULES = """
 STRICT COPY-PASTE FORMAT RULES - MACHINE VALIDATED
 
-The output must be easy to copy and paste into the existing CV template.
+The output must be compact, ATS optimized and easy to copy and paste into the existing CV template.
 
 Mandatory section order inside FINAL TAILORED CV:
 1. Name
@@ -135,11 +135,18 @@ Mandatory section order inside FINAL TAILORED CV:
 8. ATS Analysis
 9. Cover Letter only if requested
 
+Additional ATS Skills formatting:
+- Exactly 10 skills.
+- One skill per line.
+- No bullets.
+- No numbering.
+- No blank lines between skills.
+- No comma-separated skills.
+- Compact vertical list only.
+
 Professional Experience formatting:
 - Each role heading must be on its own line.
 - Each achievement must be on its own separate new line.
-- Achievements must be compact with no empty lines between them.
-- Additional ATS Skills must be vertical, one skill per line, no empty lines.
 - DO NOT write "ACHIEVEMENT:".
 - DO NOT write "Achievement:".
 - DO NOT write "Bullet:".
@@ -148,8 +155,9 @@ Professional Experience formatting:
 - DO NOT write "KPI:".
 - DO NOT use bullet symbols such as -, *, •, or numbered bullets for achievements.
 - Do not place multiple achievements on the same paragraph.
-- One blank line between roles.
+- One blank line between roles only.
 - No blank lines between achievements inside the same role.
+- Each achievement must occupy exactly one line.
 - Achievement text must be plain text only, ready to paste into the CV.
 
 Professional experience role headings must match exactly:
@@ -171,6 +179,7 @@ Never use placeholders such as [Company Name], [Hiring Manager Name], [Job Title
 If company name is available, address it to: Dear Hiring Team at [Company Name],
 If company name is not available, address it to: Dear Hiring Manager,
 The cover letter body must be 1,795 to 1,805 characters including spaces. Target exactly 1,800 characters.
+The Cover Letter must be written in the same language as the Job Description unless the user explicitly selected another output language.
 Do not show the character count in the final output.
 Do not invent facts, achievements, metrics, certifications, systems or company information.
 """
@@ -191,17 +200,77 @@ Skill extraction requirements:
 - Additional ATS Skills must contain exactly 10 skills and must be aligned with the Job Description and candidate experience.
 - Do not invent skills unsupported by the Job Description or Experience Repository.
 
-ADDITIONAL ATS COMPLIANCE RULES:
-- Additional ATS Skills MUST be listed vertically.
+Mandatory ATS gap analysis requirements:
+- Always identify Matched Keywords.
+- Always identify Partial Match Keywords with 60-80% estimated coverage.
+- Always identify Missing Important Keywords.
+- Always consider partial matches and missing keywords during CV creation.
+- Always list Partial Match Keywords and Missing Important Keywords in the Final ATS Report.
+- The objective is zero deviations.
+"""
+
+
+ADDITIONAL_ATS_SKILLS_RULES = """
+ADDITIONAL ATS SKILLS RULES - NON NEGOTIABLE
+
+Additional ATS Skills must always be displayed vertically:
+- Exactly 10 skills.
 - One skill per line.
+- No bullets.
+- No numbering.
+- No commas separating multiple skills.
 - No blank lines between skills.
-- Achievements MUST be one achievement per line.
-- No blank lines between achievements.
-- Cover Letter language MUST match the Job Description language.
-- Always generate a table for ATS analysis.
-- ATS analysis table MUST include: Matched Keywords, Partial Matches (60-80%), Missing Important Keywords.
-- Partial Matches and Missing Important Keywords must always appear after the Cover Letter and before the Final ATS Report.
-- Goal is zero deviations after validation.
+- No extra explanation before or after the skill list.
+- Skills must be extracted from the Job Description and supported by candidate experience.
+"""
+
+ATS_GAP_ANALYSIS_RULES = """
+MANDATORY ATS GAP ANALYSIS - NON NEGOTIABLE
+
+The final output must always include ATS gap analysis at the end, after the Cover Letter when Cover Letter is requested.
+
+The final ATS section must include these Markdown tables:
+
+1. Keyword Coverage Table
+| Category | Keyword | Status |
+|---|---|---|
+| Matched | keyword | Covered |
+| Partial Match | keyword | 60-80% |
+| Missing Important | keyword | High Priority |
+
+2. Partial Match Keywords Table
+| Partial Match Keyword | Estimated Coverage | Action Taken |
+|---|---|---|
+| keyword | 60-80% | Improved naturally in CV when supported by source facts |
+
+3. Missing Important Keywords Table
+| Missing Important Keyword | Priority | Action |
+|---|---|---|
+| keyword | High | Address if supported by candidate experience |
+
+Rules:
+- Always include Partial Match Keywords.
+- Always include Missing Important Keywords.
+- Partial matches are keywords with estimated 60-80% coverage.
+- Missing Important Keywords must be extracted from the Job Description.
+- Never invent keywords.
+- Every partial match and missing important keyword must be considered during CV creation.
+- The objective is zero ATS deviations.
+- If a keyword cannot be added because it is not supported by the Experience Repository, keep it listed as Missing Important.
+- Use Markdown tables so DOCX and PDF exports render real table cells.
+"""
+
+LANGUAGE_ALIGNMENT_RULES = """
+LANGUAGE ALIGNMENT RULES
+
+- Detect the language of the Job Description.
+- The Cover Letter must always be written in the same language as the Job Description.
+- If the Job Description is English, the Cover Letter must be English.
+- If the Job Description is Dutch, the Cover Letter must be Dutch.
+- If the Job Description is German, the Cover Letter must be German.
+- If the Job Description is French, the Cover Letter must be French.
+- If the Job Description is Portuguese, the Cover Letter must be Portuguese.
+- Never translate the Cover Letter into another language unless the user explicitly selected a different output language.
 """
 
 FINAL_OUTPUT_POLICY = """
@@ -214,16 +283,16 @@ Final answer must contain only:
 1. SELECTED CV TYPE
 2. ATS VALIDATION STATUS - concise Markdown table with columns Metric and Score
 3. FINAL TAILORED CV
-4. COVER LETTER (when requested and in the same language as the vacancy)
-5. ATS GAP ANALYSIS TABLE
-6. FINAL ATS REPORT - concise realistic simulated scores, using Markdown tables for metrics
+4. FINAL ATS REPORT - concise realistic simulated scores, using Markdown tables for metrics
 
-ATS GAP ANALYSIS TABLE MUST ALWAYS CONTAIN:
-| Category | Items |
-| Partial Matches (60-80%) | ... |
-| Missing Important Keywords | ... |
+If Cover Letter is requested, include it inside FINAL TAILORED CV after ATS Analysis.
 
-If Cover Letter is requested, include it as the last section inside FINAL TAILORED CV, after ATS Analysis.
+At the end of FINAL ATS REPORT, always include:
+- Keyword Coverage Table
+- Partial Match Keywords Table
+- Missing Important Keywords Table
+
+All tables must use Markdown table syntax so DOCX and PDF exports render formatted cells.
 """
 
 
@@ -945,6 +1014,128 @@ def extract_additional_ats_skills(result: str) -> List[str]:
     return skills
 
 
+
+
+def extract_additional_ats_skills_raw_section(result: str) -> str:
+    return extract_section_text(
+        result,
+        "Additional ATS Skills",
+        ["Professional Summary", "Professional Experience", "Education", "Systems / Tools", "ATS Analysis", "Cover Letter", "Final ATS Report"],
+    )
+
+
+def validate_vertical_ats_skills(result: str) -> List[str]:
+    issues = []
+    section = extract_additional_ats_skills_raw_section(result)
+    skills = extract_additional_ats_skills(result)
+
+    if not section.strip():
+        issues.append("Additional ATS Skills section is missing or empty.")
+        return issues
+
+    raw_lines = section.splitlines()
+    if any(not line.strip() for line in raw_lines):
+        issues.append("Additional ATS Skills contains blank lines. Use one skill per line with no blank lines.")
+
+    for index, line in enumerate(raw_lines, start=1):
+        stripped = line.strip()
+        if not stripped:
+            continue
+        if stripped.startswith(("-", "*", "•")) or re.match(r"^\d+[\.\)]\s+", stripped):
+            issues.append(f"Additional ATS Skills line {index}: bullets or numbering are not allowed.")
+        if "," in stripped:
+            issues.append(f"Additional ATS Skills line {index}: comma-separated skills are not allowed. Use one skill per line.")
+
+    if len(skills) != 10:
+        issues.append(f"Additional ATS Skills: expected exactly 10 skills; found {len(skills)}.")
+
+    return issues
+
+
+def count_blank_lines_between_role_achievements(result: str) -> List[str]:
+    issues = []
+    lines = (result or "").splitlines()
+    inside_experience = False
+    current_role = None
+    previous_was_achievement = False
+
+    for raw_line in lines:
+        line = raw_line.strip()
+        normalized = normalize_for_match(line)
+
+        if normalized == "professional experience":
+            inside_experience = True
+            current_role = None
+            previous_was_achievement = False
+            continue
+
+        if inside_experience and normalized in ["education", "systems tools", "ats analysis", "cover letter", "final ats report"]:
+            break
+
+        role = is_role_heading(line)
+        if role:
+            current_role = role
+            previous_was_achievement = False
+            continue
+
+        if inside_experience and current_role:
+            if not line and previous_was_achievement:
+                issues.append(f"{current_role}: blank line found between achievements. Achievements must be compact with no blank lines.")
+                previous_was_achievement = False
+                continue
+
+            if is_plain_achievement_line(line):
+                previous_was_achievement = True
+            elif line:
+                previous_was_achievement = False
+
+    return issues
+
+
+def has_markdown_table_with_header(result: str, required_headers: List[str]) -> bool:
+    lines = (result or "").splitlines()
+    required = [h.lower().strip() for h in required_headers]
+
+    for line in lines:
+        if not is_markdown_table_line(line):
+            continue
+        cells = [cell.strip().lower() for cell in line.strip().strip("|").split("|")]
+        if all(header in cells for header in required):
+            return True
+
+    return False
+
+
+def validate_ats_gap_sections(result: str) -> List[str]:
+    issues = []
+    lower = (result or "").lower()
+
+    for term in ["keyword coverage", "partial match", "missing important"]:
+        if term not in lower:
+            issues.append(f"Final ATS Report missing required ATS gap section or label: {term}.")
+
+    if not has_markdown_table_with_header(result, ["Category", "Keyword"]):
+        issues.append("Keyword Coverage Table missing. Required Markdown table with columns Category and Keyword.")
+
+    if not has_markdown_table_with_header(result, ["Partial Match Keyword", "Estimated Coverage"]):
+        issues.append("Partial Match Keywords Table missing. Required Markdown table with columns Partial Match Keyword and Estimated Coverage.")
+
+    if not has_markdown_table_with_header(result, ["Missing Important Keyword", "Priority"]):
+        issues.append("Missing Important Keywords Table missing. Required Markdown table with columns Missing Important Keyword and Priority.")
+
+    return issues
+
+
+def validate_cover_letter_language_instruction(result: str, output_scope: str) -> List[str]:
+    issues = []
+    if not has_requested_cover_letter(output_scope):
+        return issues
+    cover = extract_cover_letter_text(result)
+    if cover and ("same language" in cover.lower() or "job description language" in cover.lower()):
+        issues.append("Cover Letter contains language instruction text instead of a real letter.")
+    return issues
+
+
 def has_requested_cover_letter(output_scope: str) -> bool:
     return "cover letter" in (output_scope or "").lower()
 
@@ -991,9 +1182,10 @@ def validate_generated_output(result: str, output_scope: str) -> Tuple[bool, Lis
             if char_count < 170 or char_count > 190:
                 issues.append(f"{role} achievement {idx}: {char_count} characters. Required 170-190 including spaces.")
 
-    skills = extract_additional_ats_skills(result)
-    if len(skills) != 10:
-        issues.append(f"Additional ATS Skills: expected exactly 10 skills; found {len(skills)}.")
+    issues.extend(count_blank_lines_between_role_achievements(result))
+    issues.extend(validate_vertical_ats_skills(result))
+    issues.extend(validate_ats_gap_sections(result))
+    issues.extend(validate_cover_letter_language_instruction(result, output_scope))
 
     if has_requested_cover_letter(output_scope):
         cover = extract_cover_letter_text(result)
@@ -1014,7 +1206,6 @@ def validate_generated_output(result: str, output_scope: str) -> Tuple[bool, Lis
 
     return len(issues) == 0, issues
 
-
 def build_repair_prompt(original_prompt: str, previous_result: str, issues: List[str], output_scope: str) -> str:
     issue_text = "\n".join(f"- {issue}" for issue in issues)
 
@@ -1033,13 +1224,19 @@ NON-NEGOTIABLE REPAIR RULES:
 - Do not write ACHIEVEMENT:, Achievement:, Bullet:, Result:, Success:, KPI: or any similar label.
 - Do not use bullet symbols, numbered lists or multiple achievements in one paragraph.
 - Every achievement line must be 170-190 characters including spaces.
+- No blank lines between achievements inside the same role.
 - Manager CV must have exactly 8 Trade Compliance Manager EMEA achievements. Not 7.
 - Manager CV must have exactly 7 Head of Logistics EMEA achievements. Not 6.
 - Director CV must not include Trade Compliance Manager EMEA.
-- Additional ATS Skills must contain exactly 10 skills extracted from the Job Description and supported by source facts.
+- Additional ATS Skills must contain exactly 10 skills, one per line, no bullets, no numbering and no blank lines.
 - Cover Letter, if requested, must be 1,795-1,805 characters including spaces, target 1,800.
+- Cover Letter must match the language of the Job Description unless the user explicitly requested another language.
 - ATS validation must be described as simulated/internal, not live website validation.
-- Final content must be easy to copy and paste into the CV template with formatting preserved as clean lines.
+- Final ATS Report must include Keyword Coverage Table, Partial Match Keywords Table and Missing Important Keywords Table.
+- Partial matches must be estimated 60-80% coverage.
+- Missing Important Keywords must be extracted from the Job Description.
+- The objective is zero ATS deviations.
+- Final content must be easy to copy and paste into the CV template with compact ATS-friendly formatting.
 
 ORIGINAL TASK:
 {original_prompt}
@@ -1057,7 +1254,7 @@ def generate_with_strict_validation(prompt: str, output_scope: str, primary_mode
     is_valid, issues = validate_generated_output(result, output_scope)
     repair_round = 0
 
-    while not is_valid and repair_round < 4:
+    while not is_valid and repair_round < 5:
         repair_round += 1
         repair_prompt = build_repair_prompt(prompt, result, issues, output_scope)
         repaired, repair_model, repair_attempts = call_model(repair_prompt, primary_model, failover_models)
@@ -1101,7 +1298,7 @@ def strict_cv_prompt(context: str, job_description: str, language: str, output_s
 You are CareerOps Studio, an executive CV optimization engine. Do not describe yourself as AI in the output.
 
 PRIMARY OBJECTIVE
-Create a tailored CV from the Job Description using the Experience Repository as the only source of truth. The final output must be easy to copy and paste into the existing CV template.
+Create a tailored CV from the Job Description using the Experience Repository as the only source of truth. The final output must be compact, ATS optimized and easy to copy and paste into the existing CV template.
 
 ABSOLUTE RULES
 1. Never invent achievements, metrics, companies, roles, dates, systems, certifications, countries, savings, headcount, budget or KPIs.
@@ -1112,12 +1309,17 @@ ABSOLUTE RULES
 6. Do not write ACHIEVEMENT:, Achievement:, Bullet:, Result:, Success:, KPI: or any similar label.
 7. Do not use bullet symbols, numbered lists or multiple achievements in one paragraph.
 8. Every achievement line must be 170-190 characters including spaces.
-9. Manager CV must include exactly 8 Trade Compliance Manager EMEA achievement lines, not 7.
-10. Manager CV must include exactly 7 Head of Logistics EMEA achievement lines, not 6.
-11. Additional ATS Skills must contain exactly 10 skills extracted from the Job Description and supported by candidate experience.
-12. Cover Letter, when requested, must be 1,795-1,805 characters including spaces. Target exactly 1,800.
-13. ATS validation is an internal simulation. Never claim it is coming from live external websites.
-14. Do all analysis internally. Do not show reasoning, scoring steps, keyword dumps, validation logs, draft alternatives or chain-of-thought.
+9. No blank lines between achievements inside the same role.
+10. Manager CV must include exactly 8 Trade Compliance Manager EMEA achievement lines, not 7.
+11. Manager CV must include exactly 7 Head of Logistics EMEA achievement lines, not 6.
+12. Additional ATS Skills must contain exactly 10 skills extracted from the Job Description and supported by candidate experience.
+13. Additional ATS Skills must be listed vertically: one skill per line, no bullets, no numbering, no blank lines.
+14. Cover Letter, when requested, must be 1,795-1,805 characters including spaces. Target exactly 1,800.
+15. Cover Letter must be written in the same language as the Job Description unless the user explicitly selected another output language.
+16. ATS validation is an internal simulation. Never claim it is coming from live external websites.
+17. Do all analysis internally. Do not show reasoning, scoring steps, keyword dumps, validation logs, draft alternatives or chain-of-thought.
+18. Partial Match Keywords and Missing Important Keywords must be considered during CV creation and listed at the end.
+19. The objective is zero ATS deviations.
 
 {MANDATORY_CV_TYPE_RULES}
 
@@ -1125,9 +1327,15 @@ ABSOLUTE RULES
 
 {STRICT_FORMAT_RULES}
 
+{ADDITIONAL_ATS_SKILLS_RULES}
+
 {COVER_LETTER_RULES}
 
+{LANGUAGE_ALIGNMENT_RULES}
+
 {ATS_RULES}
+
+{ATS_GAP_ANALYSIS_RULES}
 
 {FINAL_OUTPUT_POLICY}
 
@@ -1150,9 +1358,28 @@ C. Apply mandatory role counts exactly.
 D. Select and rewrite achievements from source facts only.
 E. Validate each achievement line internally until it is 170-190 characters including spaces.
 F. Place each achievement on a new line with no prefix and no bullet symbol.
-G. If Cover Letter is requested, write it from Job Description + selected achievements and keep it 1,795-1,805 characters.
-H. Produce internal simulated ATS-style statistics and skill matching as Markdown tables so PDF and DOCX exports render real table cells.
-I. Return only the final output sections.
+G. Write Additional ATS Skills as exactly 10 vertical lines with no blank lines.
+H. If Cover Letter is requested, write it from Job Description + selected achievements, match the Job Description language, and keep it 1,795-1,805 characters.
+I. Produce internal simulated ATS-style statistics and skill matching as Markdown tables so PDF and DOCX exports render real table cells.
+J. Identify matched keywords, partial matches at 60-80%, and missing important keywords from the Job Description.
+K. Improve the CV naturally using supported partial/missing keywords; unsupported missing keywords must remain listed.
+L. Return only the final output sections.
+
+FINAL ATS REPORT REQUIRED TABLES
+Always include these tables:
+| Category | Keyword | Status |
+|---|---|---|
+| Matched | keyword | Covered |
+| Partial Match | keyword | 60-80% |
+| Missing Important | keyword | High Priority |
+
+| Partial Match Keyword | Estimated Coverage | Action Taken |
+|---|---|---|
+| keyword | 60-80% | Improved naturally when supported |
+
+| Missing Important Keyword | Priority | Action |
+|---|---|---|
+| keyword | High | Address if supported by source facts |
 
 OUTPUT REQUIRED
 {output_scope}
@@ -1183,13 +1410,21 @@ Check:
 - Every achievement line must be 170-190 characters including spaces
 - No achievement may include ACHIEVEMENT:, Achievement:, Bullet:, Result:, Success:, KPI: or similar label
 - No achievement may use bullet symbols or numbered lists
+- No blank lines between achievements inside the same role
+- Additional ATS Skills must be exactly 10 vertical lines, no bullets, no numbering, no blank lines
 - Cover Letter length when present: 1,795-1,805 characters including spaces
+- Cover Letter language must match the Job Description language unless explicitly requested otherwise
 - Hard skills extracted from the Job Description
 - Soft skills extracted from the Job Description
 - Systems, tools, certifications and industry keywords extracted from the Job Description
 - Whether Additional ATS Skills has exactly 10 skills aligned to the Job Description
 - Whether the CV uses only Experience Repository facts
 - Realistic simulated scores for LinkedIn-style, Jobscan-style, SkillSyncer-style, Resume Worded-style and Rezi-style checks
+- Keyword Coverage Table exists
+- Partial Match Keywords Table exists and contains 60-80% partial matches
+- Missing Important Keywords Table exists
+- Missing and partial keywords were considered during optimization
+- Objective is zero deviations
 
 Never claim 100% unless every critical keyword is naturally covered.
 Return concise corrections only.
@@ -1199,7 +1434,11 @@ Language: {language}
 
 {MANDATORY_BULLET_COUNTS}
 
+{ADDITIONAL_ATS_SKILLS_RULES}
+
 {ATS_RULES}
+
+{ATS_GAP_ANALYSIS_RULES}
 
 CONTEXT FILES
 {context}
@@ -1294,7 +1533,7 @@ main_tab, validate_tab, files_tab = st.tabs(["Application workspace", "ATS valid
 with main_tab:
     st.markdown('<div class="card">', unsafe_allow_html=True)
     st.markdown('<div class="section-title">Create tailored CV</div>', unsafe_allow_html=True)
-    st.markdown('<p class="section-note">Paste one complete job description. The system enforces exact role counts, validates every achievement at 170-190 characters including spaces, keeps Trade Compliance Manager at 8 achievements for Manager CV, and treats ATS as internal simulation.</p>', unsafe_allow_html=True)
+    st.markdown('<p class="section-note">Paste one complete job description. The system enforces compact ATS formatting, vertical ATS skills, one achievement per line, exact role counts, language-matched cover letter, partial matches, missing keywords and internal ATS simulation.</p>', unsafe_allow_html=True)
     job_description = st.text_area(
         "Job description",
         height=360,
