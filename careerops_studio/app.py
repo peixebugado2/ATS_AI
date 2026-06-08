@@ -138,6 +138,8 @@ Mandatory section order inside FINAL TAILORED CV:
 Professional Experience formatting:
 - Each role heading must be on its own line.
 - Each achievement must be on its own separate new line.
+- Achievements must be compact with no empty lines between them.
+- Additional ATS Skills must be vertical, one skill per line, no empty lines.
 - DO NOT write "ACHIEVEMENT:".
 - DO NOT write "Achievement:".
 - DO NOT write "Bullet:".
@@ -188,6 +190,18 @@ Skill extraction requirements:
 - Match extracted skills against the tailored CV.
 - Additional ATS Skills must contain exactly 10 skills and must be aligned with the Job Description and candidate experience.
 - Do not invent skills unsupported by the Job Description or Experience Repository.
+
+ADDITIONAL ATS COMPLIANCE RULES:
+- Additional ATS Skills MUST be listed vertically.
+- One skill per line.
+- No blank lines between skills.
+- Achievements MUST be one achievement per line.
+- No blank lines between achievements.
+- Cover Letter language MUST match the Job Description language.
+- Always generate a table for ATS analysis.
+- ATS analysis table MUST include: Matched Keywords, Partial Matches (60-80%), Missing Important Keywords.
+- Partial Matches and Missing Important Keywords must always appear after the Cover Letter and before the Final ATS Report.
+- Goal is zero deviations after validation.
 """
 
 FINAL_OUTPUT_POLICY = """
@@ -200,7 +214,14 @@ Final answer must contain only:
 1. SELECTED CV TYPE
 2. ATS VALIDATION STATUS - concise Markdown table with columns Metric and Score
 3. FINAL TAILORED CV
-4. FINAL ATS REPORT - concise realistic simulated scores, using Markdown tables for metrics
+4. COVER LETTER (when requested and in the same language as the vacancy)
+5. ATS GAP ANALYSIS TABLE
+6. FINAL ATS REPORT - concise realistic simulated scores, using Markdown tables for metrics
+
+ATS GAP ANALYSIS TABLE MUST ALWAYS CONTAIN:
+| Category | Items |
+| Partial Matches (60-80%) | ... |
+| Missing Important Keywords | ... |
 
 If Cover Letter is requested, include it as the last section inside FINAL TAILORED CV, after ATS Analysis.
 """
