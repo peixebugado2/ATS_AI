@@ -5,7 +5,7 @@ import time
 from datetime import datetime
 from io import BytesIO
 from pathlib import Path
-from typing import Dict, List, Tuple
+from typing import Dict, List, Tuple, Set
 
 import streamlit as st
 from dotenv import load_dotenv
@@ -33,6 +33,9 @@ TEMPLATE_DIR = ROOT / "templates"
 
 HISTORY_FILE = ROOT / "careerops_history.json"
 MAX_HISTORY_ITEMS = 30
+MIN_ACHIEVEMENT_CHARS = 170
+MAX_ACHIEVEMENT_CHARS = 190
+MAX_REPAIR_ROUNDS = 8
 
 MODEL_OPTIONS = [
     "gemini-2.5-flash-lite",
@@ -275,53 +278,75 @@ LANGUAGE ALIGNMENT RULES
 
 
 ATS_KEYWORD_ENFORCEMENT_RULES = """
-ATS OPTIMIZATION AND KEYWORD ENFORCEMENT – NON NEGOTIABLE
+ATS OPTIMIZATION AND KEYWORD ENFORCEMENT - ZERO TOLERANCE
+
+The application will machine-validate the final answer. If any rule below fails, the output is invalid and must be repaired before delivery.
 
 MANDATORY ATS EXTRACTION
-- Extract Hard Skills
-- Extract Soft Skills
-- Extract Systems / Tools
-- Extract Leadership Competencies
-- Extract Industry Keywords
-- Extract Operational Keywords
-- Extract ATS Keywords
+Before writing the CV, extract these categories from the Job Description:
+1. Hard Skills
+2. Soft Skills
+3. Systems / Tools
+4. Leadership Competencies
+5. Industry Keywords
+6. Operational Keywords
+7. ATS Keywords
+
+Examples of hard/operational keywords to capture when present:
+FCL/LCL Strategy, Ocean Freight Management, Ocean Container Management, Demurrage Reduction, Detention Reduction, Accessorial Cost Control, Port Selection Strategy, Incoterms Governance, Oracle Transportation Management, OTM, Intercompany Transfers, Plant-to-Plant Transfers, Distribution Center Replenishment, Lane Optimization, Truckload, LTL, Intermodal, Customs Broker Management, Freight Forwarder Governance, Co-Packer Operations, S&OP, IBP, Freight Spend Reporting, Cost per Pound Analysis, Cost per Unit Analysis.
+
+Examples of soft/leadership keywords to capture when present:
+Leadership, Stakeholder Management, Cross-Functional Collaboration, Communication, Strategic Planning, Team Development, Change Management, Problem Solving, Negotiation, Influence, Governance, Executive Reporting.
 
 ACHIEVEMENT REWRITING RULES
-- Every achievement must occupy exactly ONE line.
+- Every achievement must occupy exactly ONE physical line in the generated text.
 - Every achievement must be 170-190 characters INCLUDING spaces.
 - Never exceed 190 characters.
 - Never be shorter than 170 characters.
-- Never contain line breaks.
-- Never contain multiple achievements in the same paragraph.
+- Never contain line breaks inside an achievement.
+- Never merge two achievements into one paragraph.
+- Never use bullet symbols, numbering, labels or prefixes.
+- Every achievement should naturally include at least one supported ATS hard skill, soft skill, system/tool or operational keyword.
 
-ATS SKILL INJECTION RULES
-- Inject 1-2 ATS hard skills when supported.
-- Inject soft skills naturally when supported.
-- Inject systems/tools when supported.
-- Evaluate every ATS hard skill, soft skill and system.
-
-MISSING ATS KEYWORD RECOVERY
-- Search Experience Repository.
-- Search achievements.
-- Search summaries.
-- Search systems/tools sections.
-- If supported, rewrite content to include keyword naturally.
-- If unsupported, keep keyword in Partial Match or Missing Important tables.
-
-FINAL ATS VALIDATION
-- Additional ATS Skills must contain exactly 10 skills.
-- Additional ATS Skills must be vertical.
+ADDITIONAL ATS SKILLS RULES
+- Exactly 10 skills.
+- Exactly 10 non-empty physical lines.
 - One skill per line.
-- No commas.
 - No bullets.
 - No numbering.
-- Every achievement must occupy one line.
-- No blank lines between achievements.
-- Every achievement must be 170-190 characters.
-- Validate hard skills, soft skills and systems.
-- Regenerate if validation fails.
-"""
+- No commas.
+- No semicolons.
+- No blank lines.
+- No duplicate or near-duplicate skills.
+- Skills must come from the Job Description and be supported by the Experience Repository.
 
+ATS SKILL INJECTION RULES
+- Check each selected achievement against hard skills, soft skills, systems/tools and operational keywords.
+- Inject 1-2 ATS hard skills when supported by the source facts.
+- Inject soft skills naturally when supported by the source facts.
+- Inject systems/tools when supported by the source facts.
+- If a relevant keyword is partially supported, use the closest truthful wording and list it as Partial Match.
+- If a keyword is not supported, do not force it; list it as Missing Important.
+
+MISSING ATS KEYWORD RECOVERY
+For every Partial Match or Missing Important keyword:
+1. Search the Experience Repository.
+2. Search all role achievements.
+3. Search Professional Summary.
+4. Search Systems / Tools.
+5. If credible support exists, rewrite the relevant CV line to include the keyword naturally.
+6. If credible support does not exist, keep it in the ATS gap table and do not invent experience.
+
+FINAL SELF-CHECK BEFORE RETURNING
+Before final output, count characters for every achievement. Count all spaces. Then verify:
+- Additional ATS Skills has exactly 10 vertical lines.
+- Professional Experience achievements are not a text block.
+- No achievement is under 170 or over 190 characters.
+- No blank line exists between achievements.
+- Hard skills, soft skills and systems/tools from the JD were evaluated.
+- Partial and missing keywords are reported in tables.
+- Unsupported keywords are not forced into the CV.
+"""
 
 FINAL_OUTPUT_POLICY = """
 FINAL OUTPUT POLICY
@@ -1064,6 +1089,63 @@ def extract_additional_ats_skills(result: str) -> List[str]:
     return skills
 
 
+def normalize_keyword_token(text: str) -> str:
+    return re.sub(r"[^a-z0-9]+", " ", (text or "").lower()).strip()
+
+
+def important_keyword_terms_from_text(text: str) -> Set[str]:
+    """Lightweight ATS keyword detector used for local validation, not scoring."""
+    normalized = normalize_keyword_token(text)
+    terms = {
+        "fcl", "lcl", "fcl lcl", "ocean freight", "ocean container", "container",
+        "demurrage", "detention", "incoterms", "otm", "oracle transportation management",
+        "intercompany", "plant to plant", "distribution center", "replenishment",
+        "lane optimization", "truckload", "ltl", "intermodal", "customs broker",
+        "customs brokerage", "co packer", "co packer operations", "freight spend",
+        "cost per pound", "cost per unit", "budget", "supply chain", "logistics",
+        "transportation", "carrier", "freight forwarder", "s op", "ibp", "supply planning",
+        "stakeholder", "leadership", "cross functional", "collaboration", "communication",
+        "strategic planning", "negotiation", "governance", "continuous improvement",
+        "power bi", "sap", "tms", "erp", "kpi", "analytics", "reporting"
+    }
+    found = set()
+    for term in terms:
+        if term in normalized:
+            found.add(term)
+    return found
+
+
+def extract_experience_block_lines(result: str) -> List[Tuple[str, str]]:
+    rows = []
+    current_role = ""
+    inside_experience = False
+
+    for raw_line in (result or "").splitlines():
+        line = raw_line.rstrip()
+        stripped = line.strip()
+        normalized = normalize_for_match(stripped)
+
+        if normalized == "professional experience":
+            inside_experience = True
+            current_role = ""
+            continue
+
+        if inside_experience and normalized in ["education", "systems tools", "ats analysis", "cover letter", "final ats report"]:
+            break
+
+        if not inside_experience:
+            continue
+
+        role = is_role_heading(stripped)
+        if role:
+            current_role = role
+            rows.append((role, "__ROLE_HEADING__"))
+            continue
+
+        if current_role:
+            rows.append((current_role, line))
+
+    return rows
 
 
 def extract_additional_ats_skills_raw_section(result: str) -> str:
@@ -1084,20 +1166,116 @@ def validate_vertical_ats_skills(result: str) -> List[str]:
         return issues
 
     raw_lines = section.splitlines()
+    non_empty_lines = [line.strip() for line in raw_lines if line.strip()]
+
     if any(not line.strip() for line in raw_lines):
-        issues.append("Additional ATS Skills contains blank lines. Use one skill per line with no blank lines.")
+        issues.append("Additional ATS Skills contains blank lines. Use exactly 10 consecutive lines, one skill per line.")
+
+    if len(non_empty_lines) != 10:
+        issues.append(f"Additional ATS Skills must be exactly 10 vertical non-empty lines; found {len(non_empty_lines)}.")
 
     for index, line in enumerate(raw_lines, start=1):
         stripped = line.strip()
         if not stripped:
             continue
-        if stripped.startswith(("-", "*", "•")) or re.match(r"^\d+[\.\)]\s+", stripped):
+        if stripped.startswith(("-", "*", "•", "–", "—")) or re.match(r"^\d+[\.\)]\s+", stripped):
             issues.append(f"Additional ATS Skills line {index}: bullets or numbering are not allowed.")
-        if "," in stripped:
-            issues.append(f"Additional ATS Skills line {index}: comma-separated skills are not allowed. Use one skill per line.")
+        if any(delimiter in stripped for delimiter in [",", ";", " | "]):
+            issues.append(f"Additional ATS Skills line {index}: multiple skills on one line are not allowed. Use one skill per line.")
+        if re.search(r"\s{2,}", stripped):
+            issues.append(f"Additional ATS Skills line {index}: repeated spaces found; keep skill text clean.")
+        if len(stripped) > 70:
+            issues.append(f"Additional ATS Skills line {index}: too long for a single skill. Split or replace with one concise ATS skill.")
+
+    normalized_seen = set()
+    for skill in skills:
+        norm = normalize_keyword_token(skill)
+        if norm in normalized_seen:
+            issues.append(f"Additional ATS Skills contains duplicate or near-duplicate skill: {skill}.")
+        normalized_seen.add(norm)
 
     if len(skills) != 10:
         issues.append(f"Additional ATS Skills: expected exactly 10 skills; found {len(skills)}.")
+
+    return issues
+
+
+def validate_professional_experience_format(result: str) -> List[str]:
+    issues = []
+    rows = extract_experience_block_lines(result)
+    if not rows:
+        issues.append("Professional Experience section is missing or could not be parsed.")
+        return issues
+
+    previous_role = ""
+    previous_line_was_achievement = False
+    blank_after_role = False
+
+    for role, line in rows:
+        if line == "__ROLE_HEADING__":
+            previous_role = role
+            previous_line_was_achievement = False
+            blank_after_role = False
+            continue
+
+        stripped = line.strip()
+        if not stripped:
+            if previous_line_was_achievement:
+                issues.append(f"{role}: blank line found between achievements. Achievements must be consecutive with no blank lines.")
+            elif previous_role == role:
+                blank_after_role = True
+            continue
+
+        if blank_after_role:
+            issues.append(f"{role}: blank line found after role heading before first achievement. Start achievements immediately under the role.")
+            blank_after_role = False
+
+        if stripped.startswith(("-", "*", "•", "–", "—")) or re.match(r"^\d+[\.\)]\s+", stripped):
+            issues.append(f"{role}: achievement uses a bullet or numbered list. Use plain text only.")
+
+        if stripped.lower().startswith(("achievement:", "achievements:", "bullet:", "result:", "success:", "kpi:")):
+            issues.append(f"{role}: forbidden achievement label found. Use the achievement sentence only.")
+
+        char_count = len(stripped)
+        if char_count < MIN_ACHIEVEMENT_CHARS or char_count > MAX_ACHIEVEMENT_CHARS:
+            issues.append(f"{role}: achievement has {char_count} characters. Required {MIN_ACHIEVEMENT_CHARS}-{MAX_ACHIEVEMENT_CHARS} including spaces. Text: {stripped[:110]}")
+
+        if stripped.count(".") >= 2 and len(stripped) > MAX_ACHIEVEMENT_CHARS:
+            issues.append(f"{role}: likely multiple achievements were merged into one text block. Keep exactly one achievement per line.")
+
+        if "  " in stripped:
+            issues.append(f"{role}: repeated spaces found inside achievement. Clean spacing before final output.")
+
+        previous_line_was_achievement = True
+
+    return issues
+
+
+def validate_ats_keyword_presence(result: str, job_description: str = "") -> List[str]:
+    issues = []
+    cv_text = result or ""
+    skills = extract_additional_ats_skills(result)
+    jd_terms = important_keyword_terms_from_text(job_description)
+    skill_terms = set()
+    for skill in skills:
+        skill_terms.update(important_keyword_terms_from_text(skill))
+        norm = normalize_keyword_token(skill)
+        if norm:
+            skill_terms.add(norm)
+
+    target_terms = sorted((jd_terms | skill_terms), key=len, reverse=True)
+    if job_description and jd_terms:
+        cv_norm = normalize_keyword_token(cv_text)
+        covered = [term for term in jd_terms if term in cv_norm]
+        if len(covered) < min(5, len(jd_terms)):
+            issues.append("ATS keyword injection appears weak: too few detected JD hard/soft/system keywords appear in the final CV.")
+
+    role_achievements = extract_role_achievements(result)
+    for role, achievements in role_achievements.items():
+        for idx, achievement in enumerate(achievements, start=1):
+            ach_norm = normalize_keyword_token(achievement)
+            if target_terms and not any(term in ach_norm for term in target_terms):
+                issues.append(f"{role} achievement {idx}: no clear ATS hard skill, soft skill or system keyword detected. Rewrite with a supported ATS keyword.")
 
     return issues
 
@@ -1204,7 +1382,7 @@ def validate_required_sections(result: str, output_scope: str) -> List[str]:
     return issues
 
 
-def validate_generated_output(result: str, output_scope: str) -> Tuple[bool, List[str]]:
+def validate_generated_output(result: str, output_scope: str, job_description: str = "") -> Tuple[bool, List[str]]:
     issues = []
     issues.extend(validate_required_sections(result, output_scope))
 
@@ -1233,7 +1411,9 @@ def validate_generated_output(result: str, output_scope: str) -> Tuple[bool, Lis
                 issues.append(f"{role} achievement {idx}: {char_count} characters. Required 170-190 including spaces.")
 
     issues.extend(count_blank_lines_between_role_achievements(result))
+    issues.extend(validate_professional_experience_format(result))
     issues.extend(validate_vertical_ats_skills(result))
+    issues.extend(validate_ats_keyword_presence(result, job_description))
     issues.extend(validate_ats_gap_sections(result))
     issues.extend(validate_cover_letter_language_instruction(result, output_scope))
 
@@ -1299,19 +1479,19 @@ OUTPUT PACKAGE:
 """
 
 
-def generate_with_strict_validation(prompt: str, output_scope: str, primary_model: str, failover_models: List[str]) -> Tuple[str, str, List[str], List[str]]:
+def generate_with_strict_validation(prompt: str, output_scope: str, primary_model: str, failover_models: List[str], job_description: str = "") -> Tuple[str, str, List[str], List[str]]:
     result, used_model, attempts = call_model(prompt, primary_model, failover_models)
-    is_valid, issues = validate_generated_output(result, output_scope)
+    is_valid, issues = validate_generated_output(result, output_scope, job_description)
     repair_round = 0
 
-    while not is_valid and repair_round < 5:
+    while not is_valid and repair_round < MAX_REPAIR_ROUNDS:
         repair_round += 1
         repair_prompt = build_repair_prompt(prompt, result, issues, output_scope)
         repaired, repair_model, repair_attempts = call_model(repair_prompt, primary_model, failover_models)
         attempts.extend(repair_attempts)
         result = repaired
         used_model = repair_model
-        is_valid, issues = validate_generated_output(result, output_scope)
+        is_valid, issues = validate_generated_output(result, output_scope, job_description)
 
     return result, used_model, attempts, issues
 
@@ -1621,6 +1801,7 @@ with main_tab:
                         output_scope,
                         primary_model,
                         failover_models,
+                        job_description,
                     )
                     if strict_issues:
                         st.warning("Strict validation still found issues after repair attempts. Review below before sending to client.")
