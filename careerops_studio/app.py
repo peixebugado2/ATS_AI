@@ -404,78 +404,274 @@ def inject_css():
         """
         <style>
         :root {
-            --bg: #070910;
-            --panel: rgba(16, 19, 27, .86);
-            --panel2: rgba(22, 27, 38, .84);
-            --panel3: rgba(255,255,255,.045);
-            --border: rgba(230, 210, 170, .16);
-            --border2: rgba(230, 210, 170, .28);
-            --text: #f7f1e8;
-            --muted: rgba(247,241,232,.66);
-            --gold: #d6b56e;
-            --gold2: #f2d99e;
-            --blue: #8fb4dc;
-            --green: #94d6a8;
-            --red: #ff7272;
+            --page: #f7f7f5;
+            --surface: #ffffff;
+            --surface-soft: #f2f2ef;
+            --surface-muted: #fafafa;
+            --sidebar: #fbfbfa;
+            --text: #171717;
+            --muted: #6b6b68;
+            --muted-2: #8a8a86;
+            --line: #e7e5df;
+            --line-strong: #d8d5ca;
+            --accent: #111111;
+            --accent-soft: #ecebe7;
+            --success-bg: #eef8f0;
+            --success-border: #cfead5;
+            --warning-bg: #fff7e6;
+            --warning-border: #f1dfb8;
+            --radius-lg: 22px;
+            --radius-md: 16px;
+            --shadow: 0 18px 45px rgba(0, 0, 0, .06);
         }
+
+        html, body, [class*="css"] {
+            font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        }
+
         .stApp {
             color: var(--text);
             background:
-              radial-gradient(circle at top left, rgba(214,181,110,.16), transparent 30%),
-              radial-gradient(circle at 90% 12%, rgba(143,180,220,.11), transparent 28%),
-              linear-gradient(135deg, #05060a 0%, #0b1019 45%, #080a0f 100%);
+                radial-gradient(circle at 18% 0%, rgba(0,0,0,.035), transparent 28%),
+                linear-gradient(180deg, #fbfbfa 0%, var(--page) 44%, #f1f1ee 100%);
         }
-        [data-testid="stHeader"] { background: rgba(0,0,0,0); }
-        .block-container { max-width: 1240px; padding-top: 1.2rem; }
+
+        [data-testid="stHeader"] {
+            background: transparent;
+        }
+
+        .block-container {
+            max-width: 1180px;
+            padding-top: 1.4rem;
+            padding-bottom: 2rem;
+        }
+
         [data-testid="stSidebar"] {
-            background: linear-gradient(180deg, rgba(9,12,18,.99), rgba(13,17,25,.94));
-            border-right: 1px solid var(--border);
+            background: var(--sidebar);
+            border-right: 1px solid var(--line);
         }
-        [data-testid="stSidebar"] * { color: var(--text); }
-        .studio-shell {
-            border: 1px solid var(--border);
-            background: linear-gradient(135deg, rgba(255,255,255,.06), rgba(255,255,255,.025));
+
+        [data-testid="stSidebar"] [data-testid="stMarkdownContainer"] p,
+        [data-testid="stSidebar"] label,
+        [data-testid="stSidebar"] span {
+            color: var(--text);
+        }
+
+        [data-testid="stSidebar"] h3 {
+            font-size: .82rem;
+            text-transform: uppercase;
+            letter-spacing: .12em;
+            color: var(--muted);
+            margin-bottom: .35rem;
+        }
+
+        .hero {
+            border: 1px solid var(--line);
+            background: rgba(255, 255, 255, .88);
+            backdrop-filter: blur(14px);
             border-radius: 28px;
-            padding: 22px 26px;
-            box-shadow: 0 26px 80px rgba(0,0,0,.34);
+            padding: 30px 32px;
+            box-shadow: var(--shadow);
             margin-bottom: 18px;
         }
-        .studio-top { display:flex; justify-content:space-between; align-items:flex-start; gap:18px; }
-        .studio-brand { color:var(--gold); letter-spacing:.24em; text-transform:uppercase; font-size:.75rem; font-weight:700; }
-        .studio-title { margin-top:8px; font-size:2.3rem; line-height:1.02; letter-spacing:-.055em; font-weight:850; }
-        .studio-subtitle { color:var(--muted); margin-top:10px; max-width:760px; font-size:.98rem; }
-        .status-pill { border:1px solid var(--border2); background:rgba(214,181,110,.12); border-radius:999px; padding:8px 12px; color:var(--gold2); font-size:.78rem; white-space:nowrap; }
-        .mini-grid { display:grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap:12px; margin: 18px 0 2px; }
-        .mini-card { border:1px solid var(--border); background:rgba(255,255,255,.035); border-radius:18px; padding:14px 16px; }
-        .mini-label { color:var(--muted); font-size:.72rem; letter-spacing:.13em; text-transform:uppercase; }
-        .mini-value { margin-top:6px; font-size:1.03rem; font-weight:780; }
+
+        .hero-row {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 24px;
+        }
+
+        .eyebrow {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 10px;
+            border: 1px solid var(--line);
+            border-radius: 999px;
+            background: var(--surface-soft);
+            color: var(--muted);
+            font-size: .76rem;
+            font-weight: 650;
+        }
+
+        .hero-title {
+            margin: 14px 0 10px;
+            max-width: 780px;
+            font-size: clamp(2.05rem, 5vw, 4.1rem);
+            line-height: .96;
+            letter-spacing: -.065em;
+            font-weight: 820;
+        }
+
+        .hero-subtitle {
+            max-width: 720px;
+            color: var(--muted);
+            font-size: 1.02rem;
+            line-height: 1.6;
+        }
+
+        .status-pill {
+            border: 1px solid var(--line-strong);
+            background: var(--accent-soft);
+            border-radius: 999px;
+            padding: 9px 13px;
+            color: var(--text);
+            font-size: .8rem;
+            font-weight: 700;
+            white-space: nowrap;
+        }
+
+        .mini-grid {
+            display: grid;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            gap: 10px;
+            margin-top: 24px;
+        }
+
+        .mini-card {
+            border: 1px solid var(--line);
+            background: var(--surface-muted);
+            border-radius: 18px;
+            padding: 15px 16px;
+        }
+
+        .mini-label {
+            color: var(--muted-2);
+            font-size: .72rem;
+            font-weight: 750;
+            letter-spacing: .1em;
+            text-transform: uppercase;
+        }
+
+        .mini-value {
+            margin-top: 7px;
+            font-size: .98rem;
+            font-weight: 760;
+            color: var(--text);
+            word-break: break-word;
+        }
+
         .card {
-            border:1px solid var(--border); background:var(--panel); border-radius:24px;
-            padding:24px 26px; box-shadow: 0 20px 60px rgba(0,0,0,.24); margin-bottom:16px;
+            border: 1px solid var(--line);
+            background: rgba(255,255,255,.92);
+            border-radius: var(--radius-lg);
+            padding: 24px;
+            box-shadow: var(--shadow);
+            margin-bottom: 16px;
         }
-        .section-title { font-size:1.35rem; font-weight:820; letter-spacing:-.035em; margin:0 0 6px; }
-        .section-note { color:var(--muted); margin:0 0 18px; }
-        .result-shell { border:1px solid var(--border); background:rgba(255,255,255,.055); border-radius:22px; padding:24px; margin-top:18px; }
-        .audit-box { border:1px solid rgba(148,214,168,.25); background:rgba(148,214,168,.08); border-radius:16px; padding:12px 14px; margin:14px 0; color:rgba(247,241,232,.88); }
-        .footer-note { text-align:center; color:var(--muted); font-size:.80rem; padding:26px 0 10px; }
+
+        .section-title {
+            font-size: 1.36rem;
+            line-height: 1.2;
+            letter-spacing: -.035em;
+            font-weight: 800;
+            margin: 0 0 7px;
+        }
+
+        .section-note {
+            color: var(--muted);
+            margin: 0 0 18px;
+            line-height: 1.55;
+        }
+
+        .result-shell {
+            border: 1px solid var(--line);
+            background: var(--surface);
+            border-radius: var(--radius-lg);
+            padding: 26px;
+            margin-top: 18px;
+            box-shadow: var(--shadow);
+        }
+
+        .audit-box {
+            border: 1px solid var(--success-border);
+            background: var(--success-bg);
+            border-radius: 16px;
+            padding: 12px 14px;
+            margin: 14px 0;
+            color: #1e4620;
+        }
+
+        .footer-note {
+            text-align: center;
+            color: var(--muted);
+            font-size: .82rem;
+            padding: 26px 0 10px;
+        }
+
         .stButton > button, .stDownloadButton > button {
-            border-radius: 14px !important; border:1px solid var(--border) !important; font-weight:750 !important;
-            padding:.72rem 1rem !important;
+            border-radius: 14px !important;
+            border: 1px solid var(--line-strong) !important;
+            background: var(--surface) !important;
+            color: var(--text) !important;
+            font-weight: 760 !important;
+            padding: .74rem 1rem !important;
+            box-shadow: none !important;
         }
+
+        .stButton > button:hover, .stDownloadButton > button:hover {
+            border-color: #171717 !important;
+            background: #f6f6f3 !important;
+        }
+
         .stButton > button[kind="primary"] {
-            color:#080910 !important; border:0 !important;
-            background: linear-gradient(90deg, #f3d995, #caa760) !important;
+            color: #ffffff !important;
+            border: 1px solid #111111 !important;
+            background: #111111 !important;
         }
-        textarea, input, .stTextArea textarea, .stTextInput input { border-radius: 16px !important; }
-        [data-testid="stFileUploader"] { border:1px dashed rgba(214,181,110,.28); background:rgba(255,255,255,.035); border-radius:18px; padding:12px; }
-        div[data-testid="stTabs"] button { border-radius:999px !important; padding:11px 18px !important; }
-        hr { border-color: var(--border); }
-        @media (max-width: 900px) { .mini-grid { grid-template-columns: repeat(2, minmax(0,1fr)); } .studio-title { font-size:1.8rem; } }
+
+        .stButton > button[kind="primary"]:hover {
+            background: #2a2a2a !important;
+        }
+
+        textarea, input, .stTextArea textarea, .stTextInput input,
+        [data-baseweb="select"] > div {
+            border-radius: 16px !important;
+            border-color: var(--line-strong) !important;
+            background-color: #ffffff !important;
+        }
+
+        [data-testid="stFileUploader"] {
+            border: 1px dashed var(--line-strong);
+            background: var(--surface-muted);
+            border-radius: 18px;
+            padding: 12px;
+        }
+
+        div[data-testid="stTabs"] button {
+            border-radius: 999px !important;
+            padding: 10px 18px !important;
+            color: var(--muted) !important;
+        }
+
+        div[data-testid="stTabs"] button[aria-selected="true"] {
+            color: var(--text) !important;
+            background: var(--accent-soft) !important;
+        }
+
+        [data-testid="stMetric"] {
+            border: 1px solid var(--line);
+            background: var(--surface-muted);
+            padding: 14px 16px;
+            border-radius: 16px;
+        }
+
+        hr { border-color: var(--line); }
+
+        @media (max-width: 900px) {
+            .hero-row { flex-direction: column; }
+            .mini-grid { grid-template-columns: repeat(2, minmax(0,1fr)); }
+        }
+
+        @media (max-width: 620px) {
+            .mini-grid { grid-template-columns: 1fr; }
+            .hero { padding: 22px; }
+        }
         </style>
         """,
         unsafe_allow_html=True,
     )
-
 
 def load_template_text(filename: str, fallback: str = "") -> str:
     path = TEMPLATE_DIR / filename
@@ -1453,20 +1649,20 @@ CV TO VALIDATE
 def show_header(provider_status: str, context_profile: str, selected_model: str):
     st.markdown(
         f"""
-        <div class="studio-shell">
-            <div class="studio-top">
+        <div class="hero">
+            <div class="hero-row">
                 <div>
-                    <div class="studio-brand">{APP_TITLE}</div>
-                    <div class="studio-title">Executive CV optimization workspace.</div>
-                    <div class="studio-subtitle">Map real achievements to job requirements, route Manager / Director CVs, validate ATS fit, and export client-ready files.</div>
+                    <div class="eyebrow">{APP_TITLE} · AI resume workspace</div>
+                    <div class="hero-title">A cleaner way to tailor executive CVs.</div>
+                    <div class="hero-subtitle">Paste a job description, generate a tailored CV, validate ATS coverage, and export polished files from one calm workspace.</div>
                 </div>
                 <div class="status-pill">{provider_status}</div>
             </div>
             <div class="mini-grid">
-                <div class="mini-card"><div class="mini-label">Primary model</div><div class="mini-value">{selected_model}</div></div>
-                <div class="mini-card"><div class="mini-label">Context mode</div><div class="mini-value">{context_profile}</div></div>
+                <div class="mini-card"><div class="mini-label">Model</div><div class="mini-value">{selected_model}</div></div>
+                <div class="mini-card"><div class="mini-label">Context</div><div class="mini-value">{context_profile}</div></div>
                 <div class="mini-card"><div class="mini-label">Routing</div><div class="mini-value">Manager / Director</div></div>
-                <div class="mini-card"><div class="mini-label">Exports</div><div class="mini-value">PDF / DOCX / TXT</div></div>
+                <div class="mini-card"><div class="mini-label">Exports</div><div class="mini-value">PDF · DOCX · TXT</div></div>
             </div>
         </div>
         """,
@@ -1478,7 +1674,7 @@ st.set_page_config(page_title=APP_TITLE, page_icon="◆", layout="wide")
 inject_css()
 
 with st.sidebar:
-    st.markdown("### Workspace")
+    st.markdown("### Settings")
     primary_model = st.selectbox("Primary model", MODEL_OPTIONS, index=0)
     failover_models = st.multiselect(
         "Failover models",
@@ -1490,15 +1686,15 @@ with st.sidebar:
     if custom_model.strip():
         failover_models = [custom_model.strip()] + failover_models
     context_profile = st.selectbox("Context depth", ["Fast", "Balanced", "Deep"], index=1)
-    st.caption("multiple keys.")
+    st.caption("Use failover models to keep generation reliable when one provider is busy.")
     st.divider()
     render_history_panel()
     st.divider()
-    st.markdown("### Source documents")
-    instructions_file = st.file_uploader("Instructions", type=["txt", "md", "docx", "pdf"], key="instructions")
-    master_file = st.file_uploader("Experience Repository", type=["txt", "md", "docx", "pdf"], key="master")
-    manager_file = st.file_uploader("Manager CV Template", type=["txt", "md", "docx", "pdf"], key="manager")
-    director_file = st.file_uploader("Director CV Template", type=["txt", "md", "docx", "pdf"], key="director")
+    st.markdown("### Knowledge files")
+    instructions_file = st.file_uploader("Operating instructions", type=["txt", "md", "docx", "pdf"], key="instructions")
+    master_file = st.file_uploader("Experience repository", type=["txt", "md", "docx", "pdf"], key="master")
+    manager_file = st.file_uploader("Manager CV template", type=["txt", "md", "docx", "pdf"], key="manager")
+    director_file = st.file_uploader("Director CV template", type=["txt", "md", "docx", "pdf"], key="director")
 
 instructions_text = read_uploaded_file(instructions_file) or load_first_available([
     "My_ideas/AI_CV_Instructions_Master_Rev7.docx", "AI_CV_Instructions_Master.docx", "AI_CV_Instructions_Master_Rev7.docx"
@@ -1528,12 +1724,12 @@ if st.session_state.get("loaded_history_item"):
             f"careerops_history_{loaded.get('id', datetime.now().strftime('%Y%m%d_%H%M'))}",
         )
 
-main_tab, validate_tab, files_tab = st.tabs(["Application workspace", "ATS validation", "Source control"])
+main_tab, validate_tab, files_tab = st.tabs(["Generate", "Validate", "Files"])
 
 with main_tab:
     st.markdown('<div class="card">', unsafe_allow_html=True)
-    st.markdown('<div class="section-title">Create tailored CV</div>', unsafe_allow_html=True)
-    st.markdown('<p class="section-note">Paste one complete job description. The system enforces compact ATS formatting, vertical ATS skills, one achievement per line, exact role counts, language-matched cover letter, partial matches, missing keywords and internal ATS simulation.</p>', unsafe_allow_html=True)
+    st.markdown('<div class="section-title">Generate tailored CV</div>', unsafe_allow_html=True)
+    st.markdown('<p class="section-note">Paste the job description below. CareerOps keeps the same strict CV rules, ATS checks, cover letter logic, and export workflow.</p>', unsafe_allow_html=True)
     job_description = st.text_area(
         "Job description",
         height=360,
@@ -1552,7 +1748,7 @@ with main_tab:
                 "ATS Validation Status and Final ATS Report only",
             ],
         )
-    generate = st.button("Generate client-ready CV", type="primary", use_container_width=True)
+    generate = st.button("Generate CV", type="primary", use_container_width=True)
     st.markdown('</div>', unsafe_allow_html=True)
 
     if generate:
@@ -1596,11 +1792,11 @@ with main_tab:
 
 with validate_tab:
     st.markdown('<div class="card">', unsafe_allow_html=True)
-    st.markdown('<div class="section-title">Validate existing CV against a job</div>', unsafe_allow_html=True)
-    st.markdown('<p class="section-note">Use this when the client already has a CV and wants ATS match, keyword gaps and role alignment checked.</p>', unsafe_allow_html=True)
+    st.markdown('<div class="section-title">Validate an existing CV</div>', unsafe_allow_html=True)
+    st.markdown('<p class="section-note">Paste a CV and job description to run the same internal ATS-style validation and keyword-gap checks.</p>', unsafe_allow_html=True)
     existing_cv = st.text_area("Existing CV text", height=260, value=st.session_state.get("last_result", ""))
     validation_job = st.text_area("Job description for validation", height=240, value=st.session_state.get("last_job", ""))
-    validate = st.button("Run ATS validation", type="primary", use_container_width=True)
+    validate = st.button("Validate CV", type="primary", use_container_width=True)
     st.markdown('</div>', unsafe_allow_html=True)
     if validate:
         if not existing_cv.strip() or not validation_job.strip():
@@ -1629,8 +1825,8 @@ with validate_tab:
 
 with files_tab:
     st.markdown('<div class="card">', unsafe_allow_html=True)
-    st.markdown('<div class="section-title">Loaded source files</div>', unsafe_allow_html=True)
-    st.markdown('<p class="section-note">Confirm the source material was loaded correctly. Markdown tables and DOCX table content are exported as formatted cells in DOCX and PDF.</p>', unsafe_allow_html=True)
+    st.markdown('<div class="section-title">Loaded files</div>', unsafe_allow_html=True)
+    st.markdown('<p class="section-note">Check whether your instructions, repository and templates were loaded correctly.</p>', unsafe_allow_html=True)
     c1, c2, c3, c4 = st.columns(4)
     c1.metric("Instructions", f"{len(instructions_text):,}".replace(",", "."))
     c2.metric("Experience Repository", f"{len(master_text):,}".replace(",", "."))
@@ -1642,4 +1838,4 @@ with files_tab:
     with st.expander("Preview Experience Repository"):
         st.text(truncate_text(master_text, 6000))
 
-st.markdown('<div class="footer-note">CareerOps Studio - Private executive resume optimization workspace</div>', unsafe_allow_html=True)
+st.markdown('<div class="footer-note">CareerOps Studio · Private executive resume optimization workspace</div>', unsafe_allow_html=True)
