@@ -273,6 +273,56 @@ LANGUAGE ALIGNMENT RULES
 - Never translate the Cover Letter into another language unless the user explicitly selected a different output language.
 """
 
+
+ATS_KEYWORD_ENFORCEMENT_RULES = """
+ATS OPTIMIZATION AND KEYWORD ENFORCEMENT – NON NEGOTIABLE
+
+MANDATORY ATS EXTRACTION
+- Extract Hard Skills
+- Extract Soft Skills
+- Extract Systems / Tools
+- Extract Leadership Competencies
+- Extract Industry Keywords
+- Extract Operational Keywords
+- Extract ATS Keywords
+
+ACHIEVEMENT REWRITING RULES
+- Every achievement must occupy exactly ONE line.
+- Every achievement must be 170-190 characters INCLUDING spaces.
+- Never exceed 190 characters.
+- Never be shorter than 170 characters.
+- Never contain line breaks.
+- Never contain multiple achievements in the same paragraph.
+
+ATS SKILL INJECTION RULES
+- Inject 1-2 ATS hard skills when supported.
+- Inject soft skills naturally when supported.
+- Inject systems/tools when supported.
+- Evaluate every ATS hard skill, soft skill and system.
+
+MISSING ATS KEYWORD RECOVERY
+- Search Experience Repository.
+- Search achievements.
+- Search summaries.
+- Search systems/tools sections.
+- If supported, rewrite content to include keyword naturally.
+- If unsupported, keep keyword in Partial Match or Missing Important tables.
+
+FINAL ATS VALIDATION
+- Additional ATS Skills must contain exactly 10 skills.
+- Additional ATS Skills must be vertical.
+- One skill per line.
+- No commas.
+- No bullets.
+- No numbering.
+- Every achievement must occupy one line.
+- No blank lines between achievements.
+- Every achievement must be 170-190 characters.
+- Validate hard skills, soft skills and systems.
+- Regenerate if validation fails.
+"""
+
+
 FINAL_OUTPUT_POLICY = """
 FINAL OUTPUT POLICY
 
@@ -1336,6 +1386,8 @@ ABSOLUTE RULES
 {ATS_RULES}
 
 {ATS_GAP_ANALYSIS_RULES}
+
+{ATS_KEYWORD_ENFORCEMENT_RULES}
 
 {FINAL_OUTPUT_POLICY}
 
