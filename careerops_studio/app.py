@@ -404,269 +404,310 @@ def inject_css():
         """
         <style>
         :root {
-            --page: #f7f7f5;
-            --surface: #ffffff;
-            --surface-soft: #f2f2ef;
-            --surface-muted: #fafafa;
-            --sidebar: #fbfbfa;
-            --text: #171717;
-            --muted: #6b6b68;
-            --muted-2: #8a8a86;
-            --line: #e7e5df;
-            --line-strong: #d8d5ca;
-            --accent: #111111;
-            --accent-soft: #ecebe7;
-            --success-bg: #eef8f0;
-            --success-border: #cfead5;
-            --warning-bg: #fff7e6;
-            --warning-border: #f1dfb8;
-            --radius-lg: 22px;
-            --radius-md: 16px;
-            --shadow: 0 18px 45px rgba(0, 0, 0, .06);
+            --bg: #000000;
+            --sidebar: #080808;
+            --sidebar-hover: #2f2f2f;
+            --composer: #2a2a2a;
+            --composer-hover: #303030;
+            --panel: #171717;
+            --panel2: #212121;
+            --border: #2f2f2f;
+            --border-soft: #202020;
+            --text: #f7f7f8;
+            --muted: #b4b4b4;
+            --muted2: #8e8e8e;
         }
 
-        html, body, [class*="css"] {
-            font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        /* App base: ChatGPT dark home */
+        html, body, .stApp, [data-testid="stAppViewContainer"] {
+            background: var(--bg) !important;
+            color: var(--text) !important;
+            font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif !important;
         }
 
-        .stApp {
-            color: var(--text);
-            background:
-                radial-gradient(circle at 18% 0%, rgba(0,0,0,.035), transparent 28%),
-                linear-gradient(180deg, #fbfbfa 0%, var(--page) 44%, #f1f1ee 100%);
+        [data-testid="stHeader"], [data-testid="stToolbar"], #MainMenu, footer {
+            display: none !important;
+            visibility: hidden !important;
+            height: 0 !important;
         }
 
-        [data-testid="stHeader"] {
-            background: transparent;
-        }
+        [data-testid="stDecoration"] { display:none !important; }
 
         .block-container {
-            max-width: 1180px;
-            padding-top: 1.4rem;
-            padding-bottom: 2rem;
+            max-width: 820px !important;
+            padding-top: 15vh !important;
+            padding-left: 24px !important;
+            padding-right: 24px !important;
+            padding-bottom: 48px !important;
         }
 
+        /* Sidebar similar to ChatGPT */
         [data-testid="stSidebar"] {
-            background: var(--sidebar);
-            border-right: 1px solid var(--line);
+            background: var(--sidebar) !important;
+            border-right: 1px solid #1f1f1f !important;
+            width: 260px !important;
+            min-width: 260px !important;
         }
 
-        [data-testid="stSidebar"] [data-testid="stMarkdownContainer"] p,
-        [data-testid="stSidebar"] label,
-        [data-testid="stSidebar"] span {
-            color: var(--text);
+        [data-testid="stSidebar"] > div {
+            padding-top: 12px !important;
+        }
+
+        [data-testid="stSidebar"] * {
+            color: var(--text) !important;
+            font-size: 14px !important;
         }
 
         [data-testid="stSidebar"] h3 {
-            font-size: .82rem;
-            text-transform: uppercase;
-            letter-spacing: .12em;
-            color: var(--muted);
-            margin-bottom: .35rem;
+            font-size: 12px !important;
+            font-weight: 700 !important;
+            letter-spacing: .12em !important;
+            text-transform: uppercase !important;
+            color: var(--muted) !important;
+            margin: 20px 0 8px !important;
         }
 
-        .hero {
-            border: 1px solid var(--line);
-            background: rgba(255, 255, 255, .88);
-            backdrop-filter: blur(14px);
-            border-radius: 28px;
-            padding: 30px 32px;
-            box-shadow: var(--shadow);
-            margin-bottom: 18px;
+        [data-testid="stSidebar"] label,
+        [data-testid="stSidebar"] .stCaptionContainer,
+        [data-testid="stSidebar"] small {
+            color: var(--muted) !important;
         }
 
-        .hero-row {
+        [data-testid="stSidebar"] .stButton > button {
+            justify-content: flex-start !important;
+            width: 100% !important;
+            border: 0 !important;
+            background: transparent !important;
+            border-radius: 10px !important;
+            min-height: 36px !important;
+            padding: 8px 10px !important;
+        }
+
+        [data-testid="stSidebar"] .stButton > button:hover,
+        [data-testid="stSidebar"] section:hover {
+            background: var(--sidebar-hover) !important;
+        }
+
+        /* Home header */
+        .chatgpt-brand {
+            position: fixed;
+            top: 14px;
+            left: 16px;
+            z-index: 9999;
+            font-size: 18px;
+            line-height: 1;
+            font-weight: 700;
+            color: #ffffff;
+        }
+
+        .chatgpt-home {
             display: flex;
-            align-items: flex-start;
-            justify-content: space-between;
-            gap: 24px;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+            margin: 0 auto 26px;
         }
 
-        .eyebrow {
+        .chatgpt-title {
+            font-size: clamp(24px, 3vw, 30px);
+            font-weight: 500;
+            letter-spacing: -.02em;
+            color: #ffffff;
+            margin-bottom: 36px;
+        }
+
+        .prompt-shell {
+            width: min(768px, 100%);
+            height: 52px;
+            border-radius: 28px;
+            background: var(--composer);
+            border: 1px solid #333333;
+            box-shadow: none;
+            display: flex;
+            align-items: center;
+            padding: 0 14px;
+        }
+
+        .prompt-top {
+            width: 100%;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            color: #a9a9a9;
+            font-size: 15px;
+            text-align: left;
+        }
+
+        .prompt-plus {
+            width: 26px;
+            height: 26px;
             display: inline-flex;
             align-items: center;
-            gap: 8px;
-            padding: 6px 10px;
-            border: 1px solid var(--line);
-            border-radius: 999px;
-            background: var(--surface-soft);
-            color: var(--muted);
-            font-size: .76rem;
-            font-weight: 650;
+            justify-content: center;
+            color: #d0d0d0;
+            font-size: 28px;
+            font-weight: 300;
+            line-height: 1;
         }
 
-        .hero-title {
-            margin: 14px 0 10px;
-            max-width: 780px;
-            font-size: clamp(2.05rem, 5vw, 4.1rem);
-            line-height: .96;
-            letter-spacing: -.065em;
-            font-weight: 820;
-        }
-
-        .hero-subtitle {
-            max-width: 720px;
-            color: var(--muted);
-            font-size: 1.02rem;
-            line-height: 1.6;
-        }
-
-        .status-pill {
-            border: 1px solid var(--line-strong);
-            background: var(--accent-soft);
-            border-radius: 999px;
-            padding: 9px 13px;
-            color: var(--text);
-            font-size: .8rem;
-            font-weight: 700;
-            white-space: nowrap;
-        }
-
-        .mini-grid {
-            display: grid;
-            grid-template-columns: repeat(4, minmax(0, 1fr));
-            gap: 10px;
+        .prompt-actions {
+            display: flex;
+            justify-content: center;
+            gap: 12px;
+            flex-wrap: wrap;
             margin-top: 24px;
         }
 
-        .mini-card {
-            border: 1px solid var(--line);
-            background: var(--surface-muted);
-            border-radius: 18px;
-            padding: 15px 16px;
+        .prompt-chip {
+            border: 1px solid var(--border);
+            background: #000000;
+            color: #ffffff;
+            border-radius: 999px;
+            padding: 10px 18px;
+            font-size: 14px;
+            line-height: 1;
         }
 
-        .mini-label {
-            color: var(--muted-2);
-            font-size: .72rem;
-            font-weight: 750;
-            letter-spacing: .1em;
-            text-transform: uppercase;
-        }
+        .prompt-chip:hover { background: #111111; }
 
-        .mini-value {
-            margin-top: 7px;
-            font-size: .98rem;
-            font-weight: 760;
-            color: var(--text);
-            word-break: break-word;
-        }
+        .status-row { display: none !important; }
 
+        /* Content becomes chat composer cards, not white panels */
         .card {
-            border: 1px solid var(--line);
-            background: rgba(255,255,255,.92);
-            border-radius: var(--radius-lg);
-            padding: 24px;
-            box-shadow: var(--shadow);
-            margin-bottom: 16px;
+            width: min(768px, 100%);
+            margin: 0 auto 18px;
+            background: transparent;
+            border: 0;
+            padding: 0;
+            box-shadow: none;
         }
 
         .section-title {
-            font-size: 1.36rem;
-            line-height: 1.2;
-            letter-spacing: -.035em;
-            font-weight: 800;
-            margin: 0 0 7px;
+            color: #ffffff;
+            font-size: 18px;
+            font-weight: 600;
+            margin: 0 0 8px;
         }
 
         .section-note {
             color: var(--muted);
-            margin: 0 0 18px;
-            line-height: 1.55;
+            font-size: 14px;
+            line-height: 1.45;
+            margin: 0 0 14px;
         }
 
-        .result-shell {
-            border: 1px solid var(--line);
-            background: var(--surface);
-            border-radius: var(--radius-lg);
-            padding: 26px;
-            margin-top: 18px;
-            box-shadow: var(--shadow);
+        /* Inputs */
+        .stTextArea textarea {
+            background: var(--composer) !important;
+            color: #ffffff !important;
+            border: 1px solid #333333 !important;
+            border-radius: 26px !important;
+            padding: 18px 20px !important;
+            box-shadow: none !important;
+            min-height: 170px !important;
         }
 
-        .audit-box {
-            border: 1px solid var(--success-border);
-            background: var(--success-bg);
-            border-radius: 16px;
-            padding: 12px 14px;
-            margin: 14px 0;
-            color: #1e4620;
-        }
-
-        .footer-note {
-            text-align: center;
-            color: var(--muted);
-            font-size: .82rem;
-            padding: 26px 0 10px;
-        }
-
-        .stButton > button, .stDownloadButton > button {
+        .stTextInput input,
+        [data-baseweb="select"] > div {
+            background: var(--panel2) !important;
+            color: #ffffff !important;
+            border: 1px solid var(--border) !important;
             border-radius: 14px !important;
-            border: 1px solid var(--line-strong) !important;
-            background: var(--surface) !important;
-            color: var(--text) !important;
-            font-weight: 760 !important;
-            padding: .74rem 1rem !important;
+            min-height: 42px !important;
             box-shadow: none !important;
         }
 
-        .stButton > button:hover, .stDownloadButton > button:hover {
-            border-color: #171717 !important;
-            background: #f6f6f3 !important;
+        textarea::placeholder, input::placeholder { color: #a6a6a6 !important; }
+        label, .stCaptionContainer, .stMarkdown, p, span, div { color: inherit; }
+
+        .stButton > button,
+        .stDownloadButton > button {
+            border-radius: 999px !important;
+            border: 1px solid var(--border) !important;
+            background: #000000 !important;
+            color: #ffffff !important;
+            min-height: 42px !important;
+            font-weight: 600 !important;
+            box-shadow: none !important;
+        }
+
+        .stButton > button:hover,
+        .stDownloadButton > button:hover {
+            background: var(--composer-hover) !important;
+            border-color: #4b4b4b !important;
         }
 
         .stButton > button[kind="primary"] {
-            color: #ffffff !important;
-            border: 1px solid #111111 !important;
-            background: #111111 !important;
+            background: #ffffff !important;
+            color: #000000 !important;
+            border-color: #ffffff !important;
         }
 
-        .stButton > button[kind="primary"]:hover {
-            background: #2a2a2a !important;
+        /* Tabs as ChatGPT chips */
+        div[data-testid="stTabs"] {
+            width: min(768px, 100%);
+            margin: 0 auto;
         }
 
-        textarea, input, .stTextArea textarea, .stTextInput input,
-        [data-baseweb="select"] > div {
-            border-radius: 16px !important;
-            border-color: var(--line-strong) !important;
-            background-color: #ffffff !important;
-        }
-
-        [data-testid="stFileUploader"] {
-            border: 1px dashed var(--line-strong);
-            background: var(--surface-muted);
-            border-radius: 18px;
-            padding: 12px;
+        div[data-testid="stTabs"] [role="tablist"] {
+            gap: 8px;
+            border-bottom: 0 !important;
         }
 
         div[data-testid="stTabs"] button {
-            border-radius: 999px !important;
-            padding: 10px 18px !important;
+            background: transparent !important;
             color: var(--muted) !important;
+            border-radius: 999px !important;
+            padding: 9px 16px !important;
+            border: 0 !important;
         }
 
         div[data-testid="stTabs"] button[aria-selected="true"] {
-            color: var(--text) !important;
-            background: var(--accent-soft) !important;
+            background: #202020 !important;
+            color: #ffffff !important;
+        }
+
+        div[data-testid="stTabs"] [data-baseweb="tab-highlight"] {
+            display: none !important;
+        }
+
+        .result-shell, .audit-box {
+            width: min(768px, 100%);
+            margin: 18px auto 0;
+            border-radius: 18px;
+            border: 1px solid var(--border);
+            background: #111111;
+            padding: 20px;
+            color: #ffffff;
+        }
+
+        .audit-box {
+            background: #0f1f14;
+            border-color: #24472d;
+            color: #dff9e6;
+        }
+
+        [data-testid="stFileUploader"] {
+            background: #111111 !important;
+            border: 1px dashed var(--border) !important;
+            border-radius: 16px !important;
+            padding: 12px !important;
         }
 
         [data-testid="stMetric"] {
-            border: 1px solid var(--line);
-            background: var(--surface-muted);
-            padding: 14px 16px;
-            border-radius: 16px;
+            background: #111111 !important;
+            border: 1px solid var(--border) !important;
+            border-radius: 16px !important;
+            padding: 14px !important;
         }
 
-        hr { border-color: var(--line); }
+        .stAlert { border-radius: 16px !important; }
+        hr { border-color: var(--border) !important; }
+        .footer-note { color: var(--muted2); text-align:center; font-size:12px; padding:28px 0 12px; }
 
-        @media (max-width: 900px) {
-            .hero-row { flex-direction: column; }
-            .mini-grid { grid-template-columns: repeat(2, minmax(0,1fr)); }
-        }
-
-        @media (max-width: 620px) {
-            .mini-grid { grid-template-columns: 1fr; }
-            .hero { padding: 22px; }
+        @media (max-width: 780px) {
+            .block-container { padding-top: 8vh !important; }
+            [data-testid="stSidebar"] { width: 220px !important; min-width: 220px !important; }
         }
         </style>
         """,
@@ -1649,20 +1690,25 @@ CV TO VALIDATE
 def show_header(provider_status: str, context_profile: str, selected_model: str):
     st.markdown(
         f"""
-        <div class="hero">
-            <div class="hero-row">
-                <div>
-                    <div class="eyebrow">{APP_TITLE} · AI resume workspace</div>
-                    <div class="hero-title">A cleaner way to tailor executive CVs.</div>
-                    <div class="hero-subtitle">Paste a job description, generate a tailored CV, validate ATS coverage, and export polished files from one calm workspace.</div>
+        <div class="chatgpt-brand">CareerOps</div>
+        <div class="chatgpt-home">
+            <div class="chatgpt-title">O que vamos criar hoje?</div>
+            <div class="prompt-shell">
+                <div class="prompt-top">
+                    <span class="prompt-plus">+</span>
+                    <span>Cole uma vaga completa abaixo para gerar CV, carta e análise ATS</span>
                 </div>
-                <div class="status-pill">{provider_status}</div>
             </div>
-            <div class="mini-grid">
-                <div class="mini-card"><div class="mini-label">Model</div><div class="mini-value">{selected_model}</div></div>
-                <div class="mini-card"><div class="mini-label">Context</div><div class="mini-value">{context_profile}</div></div>
-                <div class="mini-card"><div class="mini-label">Routing</div><div class="mini-value">Manager / Director</div></div>
-                <div class="mini-card"><div class="mini-label">Exports</div><div class="mini-value">PDF · DOCX · TXT</div></div>
+            <div class="prompt-actions">
+                <div class="prompt-chip">Gerar CV otimizado</div>
+                <div class="prompt-chip">Validar ATS</div>
+                <div class="prompt-chip">Exportar PDF · DOCX · TXT</div>
+            </div>
+            <div class="status-row">
+                <div class="status-card"><div class="status-label">Modelo</div><div class="status-value">{selected_model}</div></div>
+                <div class="status-card"><div class="status-label">Contexto</div><div class="status-value">{context_profile}</div></div>
+                <div class="status-card"><div class="status-label">Modo</div><div class="status-value">{provider_status}</div></div>
+                <div class="status-card"><div class="status-label">Roteamento</div><div class="status-value">Manager / Director</div></div>
             </div>
         </div>
         """,
