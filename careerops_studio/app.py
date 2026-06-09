@@ -356,12 +356,12 @@ def get_history_title(job_description: str, fallback: str = "CareerOps Output") 
 
 
 def render_history_panel() -> None:
-    st.markdown("### History")
+    st.markdown("### 📚 Histórico")
 
     history = load_history()
 
     if not history:
-        st.caption("No saved outputs yet.")
+        st.caption("Nenhuma saída salva ainda.")
         return
 
     labels = [
@@ -370,7 +370,7 @@ def render_history_panel() -> None:
     ]
 
     selected_index = st.selectbox(
-        "Saved outputs",
+        "Saídas salvas",
         range(len(labels)),
         format_func=lambda index: labels[index],
         key="history_selected_index",
@@ -381,22 +381,22 @@ def render_history_panel() -> None:
     c1, c2 = st.columns(2)
 
     with c1:
-        if st.button("Load", use_container_width=True):
+        if st.button("📂 Carregar", use_container_width=True, key="load_btn"):
             st.session_state["last_result"] = selected_item.get("result", "")
             st.session_state["last_job"] = selected_item.get("job_description", "")
             st.session_state["loaded_history_item"] = selected_item
-            st.success("History item loaded.")
+            st.success("Item do histórico carregado.")
 
     with c2:
-        if st.button("Clear", use_container_width=True):
+        if st.button("🗑️ Limpar", use_container_width=True, key="clear_btn"):
             save_history([])
             st.session_state.pop("loaded_history_item", None)
-            st.success("History cleared.")
+            st.success("Histórico limpo.")
             st.rerun()
 
-    with st.expander("Preview selected"):
-        st.caption(f"Model: {selected_item.get('model', '')}")
-        st.caption(f"Context: {selected_item.get('context_profile', '')}")
+    with st.expander("👁️ Visualizar selecionado"):
+        st.caption(f"Modelo: {selected_item.get('model', '')}")
+        st.caption(f"Contexto: {selected_item.get('context_profile', '')}")
         st.text((selected_item.get("result", "") or "")[:2500])
 
 def inject_css():
@@ -404,315 +404,471 @@ def inject_css():
         """
         <style>
         :root {
-            --bg: #000000;
-            --sidebar: #080808;
-            --sidebar-hover: #2f2f2f;
-            --composer: #2a2a2a;
-            --composer-hover: #303030;
-            --panel: #171717;
-            --panel2: #212121;
-            --border: #2f2f2f;
-            --border-soft: #202020;
-            --text: #f7f7f8;
-            --muted: #b4b4b4;
-            --muted2: #8e8e8e;
+            --bg-primary: #0f0f15;
+            --bg-secondary: #1a1a24;
+            --bg-tertiary: #25252f;
+            --border-color: rgba(255, 255, 255, 0.08);
+            --border-color-hover: rgba(255, 255, 255, 0.12);
+            --text-primary: #ffffff;
+            --text-secondary: #b4b4b8;
+            --text-tertiary: #8b8b92;
+            --accent-primary: #10a37f;
+            --accent-secondary: #8b5cf6;
+            --accent-tertiary: #ec4899;
+            --success: #10a37f;
+            --warning: #f59e0b;
+            --error: #ef4444;
         }
 
-        /* App base: ChatGPT dark home */
-        html, body, .stApp, [data-testid="stAppViewContainer"] {
-            background: var(--bg) !important;
-            color: var(--text) !important;
-            font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif !important;
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
         }
 
-        [data-testid="stHeader"], [data-testid="stToolbar"], #MainMenu, footer {
-            display: none !important;
-            visibility: hidden !important;
-            height: 0 !important;
+        html, body, [data-testid="stAppViewContainer"] {
+            background-color: var(--bg-primary) !important;
+            color: var(--text-primary) !important;
         }
 
-        [data-testid="stDecoration"] { display:none !important; }
-
-        .block-container {
-            max-width: 820px !important;
-            padding-top: 15vh !important;
-            padding-left: 24px !important;
-            padding-right: 24px !important;
-            padding-bottom: 48px !important;
+        .stApp {
+            background: linear-gradient(135deg, var(--bg-primary) 0%, var(--bg-secondary) 50%, var(--bg-primary) 100%);
+            color: var(--text-primary);
         }
 
-        /* Sidebar similar to ChatGPT */
+        [data-testid="stHeader"] {
+            background: transparent !important;
+        }
+
         [data-testid="stSidebar"] {
-            background: var(--sidebar) !important;
-            border-right: 1px solid #1f1f1f !important;
-            width: 260px !important;
-            min-width: 260px !important;
-        }
-
-        [data-testid="stSidebar"] > div {
-            padding-top: 12px !important;
+            background: linear-gradient(180deg, var(--bg-secondary) 0%, var(--bg-tertiary) 100%) !important;
+            border-right: 1px solid var(--border-color) !important;
         }
 
         [data-testid="stSidebar"] * {
-            color: var(--text) !important;
-            font-size: 14px !important;
+            color: var(--text-primary) !important;
         }
 
-        [data-testid="stSidebar"] h3 {
-            font-size: 12px !important;
-            font-weight: 700 !important;
-            letter-spacing: .12em !important;
-            text-transform: uppercase !important;
-            color: var(--muted) !important;
-            margin: 20px 0 8px !important;
+        .block-container {
+            max-width: 1200px;
+            padding: 2rem 1.5rem;
         }
 
-        [data-testid="stSidebar"] label,
-        [data-testid="stSidebar"] .stCaptionContainer,
-        [data-testid="stSidebar"] small {
-            color: var(--muted) !important;
+        /* Header & Title Styles */
+        .header-container {
+            background: linear-gradient(135deg, rgba(16, 163, 127, 0.1) 0%, rgba(139, 92, 246, 0.05) 100%);
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            padding: 2rem;
+            margin-bottom: 2rem;
+            backdrop-filter: blur(10px);
         }
 
-        [data-testid="stSidebar"] .stButton > button {
-            justify-content: flex-start !important;
-            width: 100% !important;
-            border: 0 !important;
-            background: transparent !important;
-            border-radius: 10px !important;
-            min-height: 36px !important;
-            padding: 8px 10px !important;
+        .header-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 1.5rem;
+            margin-bottom: 1.5rem;
         }
 
-        [data-testid="stSidebar"] .stButton > button:hover,
-        [data-testid="stSidebar"] section:hover {
-            background: var(--sidebar-hover) !important;
-        }
-
-        /* Home header */
-        .chatgpt-brand {
-            position: fixed;
-            top: 14px;
-            left: 16px;
-            z-index: 9999;
-            font-size: 18px;
-            line-height: 1;
+        .header-brand {
+            font-size: 0.75rem;
             font-weight: 700;
-            color: #ffffff;
+            letter-spacing: 0.15em;
+            text-transform: uppercase;
+            color: var(--accent-primary);
+            margin-bottom: 0.5rem;
         }
 
-        .chatgpt-home {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            text-align: center;
-            margin: 0 auto 26px;
+        .header-title {
+            font-size: 2.5rem;
+            font-weight: 800;
+            line-height: 1.1;
+            letter-spacing: -0.02em;
+            color: var(--text-primary);
+            margin-bottom: 0.5rem;
         }
 
-        .chatgpt-title {
-            font-size: clamp(24px, 3vw, 30px);
-            font-weight: 500;
-            letter-spacing: -.02em;
-            color: #ffffff;
-            margin-bottom: 36px;
+        .header-subtitle {
+            font-size: 1rem;
+            color: var(--text-secondary);
+            line-height: 1.5;
+            max-width: 700px;
         }
 
-        .prompt-shell {
-            width: min(768px, 100%);
-            height: 52px;
-            border-radius: 28px;
-            background: var(--composer);
-            border: 1px solid #333333;
-            box-shadow: none;
-            display: flex;
-            align-items: center;
-            padding: 0 14px;
-        }
-
-        .prompt-top {
-            width: 100%;
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            color: #a9a9a9;
-            font-size: 15px;
-            text-align: left;
-        }
-
-        .prompt-plus {
-            width: 26px;
-            height: 26px;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            color: #d0d0d0;
-            font-size: 28px;
-            font-weight: 300;
-            line-height: 1;
-        }
-
-        .prompt-actions {
-            display: flex;
-            justify-content: center;
-            gap: 12px;
-            flex-wrap: wrap;
-            margin-top: 24px;
-        }
-
-        .prompt-chip {
-            border: 1px solid var(--border);
-            background: #000000;
-            color: #ffffff;
+        .status-badge {
+            background: rgba(16, 163, 127, 0.15);
+            border: 1px solid var(--accent-primary);
             border-radius: 999px;
-            padding: 10px 18px;
-            font-size: 14px;
-            line-height: 1;
-        }
-
-        .prompt-chip:hover { background: #111111; }
-
-        .status-row { display: none !important; }
-
-        /* Content becomes chat composer cards, not white panels */
-        .card {
-            width: min(768px, 100%);
-            margin: 0 auto 18px;
-            background: transparent;
-            border: 0;
-            padding: 0;
-            box-shadow: none;
-        }
-
-        .section-title {
-            color: #ffffff;
-            font-size: 18px;
+            padding: 0.5rem 1rem;
+            font-size: 0.85rem;
+            color: var(--accent-primary);
+            white-space: nowrap;
             font-weight: 600;
-            margin: 0 0 8px;
         }
 
-        .section-note {
-            color: var(--muted);
-            font-size: 14px;
-            line-height: 1.45;
-            margin: 0 0 14px;
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin-top: 1.5rem;
         }
 
-        /* Inputs */
-        .stTextArea textarea {
-            background: var(--composer) !important;
-            color: #ffffff !important;
-            border: 1px solid #333333 !important;
-            border-radius: 26px !important;
-            padding: 18px 20px !important;
-            box-shadow: none !important;
-            min-height: 170px !important;
+        .stat-card {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 1rem;
+            transition: all 0.3s ease;
         }
 
+        .stat-card:hover {
+            background: rgba(255, 255, 255, 0.05);
+            border-color: var(--border-color-hover);
+        }
+
+        .stat-label {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: var(--text-tertiary);
+            margin-bottom: 0.5rem;
+            font-weight: 600;
+        }
+
+        .stat-value {
+            font-size: 1.25rem;
+            font-weight: 700;
+            color: var(--accent-primary);
+        }
+
+        /* Card Styles */
+        .card {
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.03) 0%, rgba(255, 255, 255, 0.01) 100%);
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            padding: 2rem;
+            margin-bottom: 1.5rem;
+            backdrop-filter: blur(10px);
+            transition: all 0.3s ease;
+        }
+
+        .card:hover {
+            border-color: var(--border-color-hover);
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.05) 0%, rgba(255, 255, 255, 0.02) 100%);
+        }
+
+        .card-title {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--text-primary);
+            margin-bottom: 0.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .card-subtitle {
+            font-size: 0.95rem;
+            color: var(--text-secondary);
+            line-height: 1.5;
+            margin-bottom: 1.5rem;
+        }
+
+        /* Input Styles */
+        .stTextArea textarea,
         .stTextInput input,
-        [data-baseweb="select"] > div {
-            background: var(--panel2) !important;
-            color: #ffffff !important;
-            border: 1px solid var(--border) !important;
-            border-radius: 14px !important;
-            min-height: 42px !important;
-            box-shadow: none !important;
+        .stSelectbox select {
+            background-color: rgba(255, 255, 255, 0.05) !important;
+            border: 1px solid var(--border-color) !important;
+            border-radius: 12px !important;
+            color: var(--text-primary) !important;
+            padding: 0.75rem !important;
+            font-size: 0.95rem !important;
+            transition: all 0.3s ease !important;
         }
 
-        textarea::placeholder, input::placeholder { color: #a6a6a6 !important; }
-        label, .stCaptionContainer, .stMarkdown, p, span, div { color: inherit; }
+        .stTextArea textarea:focus,
+        .stTextInput input:focus,
+        .stSelectbox select:focus {
+            background-color: rgba(255, 255, 255, 0.08) !important;
+            border-color: var(--accent-primary) !important;
+            box-shadow: 0 0 0 3px rgba(16, 163, 127, 0.1) !important;
+        }
 
+        /* Button Styles */
         .stButton > button,
         .stDownloadButton > button {
-            border-radius: 999px !important;
-            border: 1px solid var(--border) !important;
-            background: #000000 !important;
-            color: #ffffff !important;
-            min-height: 42px !important;
+            background: linear-gradient(135deg, var(--accent-primary) 0%, var(--accent-secondary) 100%) !important;
+            color: white !important;
+            border: 0 !important;
+            border-radius: 12px !important;
+            padding: 0.75rem 1.5rem !important;
             font-weight: 600 !important;
-            box-shadow: none !important;
+            font-size: 0.95rem !important;
+            transition: all 0.3s ease !important;
+            cursor: pointer !important;
         }
 
         .stButton > button:hover,
         .stDownloadButton > button:hover {
-            background: var(--composer-hover) !important;
-            border-color: #4b4b4b !important;
+            transform: translateY(-2px) !important;
+            box-shadow: 0 8px 24px rgba(16, 163, 127, 0.3) !important;
         }
 
-        .stButton > button[kind="primary"] {
-            background: #ffffff !important;
-            color: #000000 !important;
-            border-color: #ffffff !important;
+        .stButton > button:active,
+        .stDownloadButton > button:active {
+            transform: translateY(0) !important;
         }
 
-        /* Tabs as ChatGPT chips */
-        div[data-testid="stTabs"] {
-            width: min(768px, 100%);
-            margin: 0 auto;
+        /* Secondary Button */
+        .stButton > button[kind="secondary"] {
+            background: rgba(255, 255, 255, 0.1) !important;
+            border: 1px solid var(--border-color) !important;
+            color: var(--text-primary) !important;
         }
 
-        div[data-testid="stTabs"] [role="tablist"] {
-            gap: 8px;
-            border-bottom: 0 !important;
+        .stButton > button[kind="secondary"]:hover {
+            background: rgba(255, 255, 255, 0.15) !important;
+            border-color: var(--border-color-hover) !important;
         }
 
-        div[data-testid="stTabs"] button {
+        /* Tabs */
+        [data-testid="stTabs"] button {
+            border-radius: 12px !important;
+            padding: 0.75rem 1.25rem !important;
             background: transparent !important;
-            color: var(--muted) !important;
-            border-radius: 999px !important;
-            padding: 9px 16px !important;
+            color: var(--text-secondary) !important;
             border: 0 !important;
+            font-weight: 600 !important;
+            transition: all 0.3s ease !important;
         }
 
-        div[data-testid="stTabs"] button[aria-selected="true"] {
-            background: #202020 !important;
-            color: #ffffff !important;
+        [data-testid="stTabs"] button[aria-selected="true"] {
+            color: var(--accent-primary) !important;
+            background: rgba(16, 163, 127, 0.1) !important;
+            border-bottom: 2px solid var(--accent-primary) !important;
         }
 
-        div[data-testid="stTabs"] [data-baseweb="tab-highlight"] {
-            display: none !important;
+        /* Expander */
+        .streamlit-expanderHeader {
+            background: rgba(255, 255, 255, 0.03) !important;
+            border: 1px solid var(--border-color) !important;
+            border-radius: 12px !important;
+            padding: 1rem !important;
         }
 
-        .result-shell, .audit-box {
-            width: min(768px, 100%);
-            margin: 18px auto 0;
-            border-radius: 18px;
-            border: 1px solid var(--border);
-            background: #111111;
-            padding: 20px;
-            color: #ffffff;
+        .streamlit-expanderHeader:hover {
+            background: rgba(255, 255, 255, 0.05) !important;
         }
 
+        /* Messages */
+        .stSuccess, .stInfo, .stWarning, .stError {
+            border-radius: 12px !important;
+            padding: 1rem !important;
+            border: 1px solid !important;
+        }
+
+        .stSuccess {
+            background: rgba(16, 163, 127, 0.1) !important;
+            border-color: var(--success) !important;
+            color: var(--success) !important;
+        }
+
+        .stInfo {
+            background: rgba(59, 130, 246, 0.1) !important;
+            border-color: #3b82f6 !important;
+            color: #3b82f6 !important;
+        }
+
+        .stWarning {
+            background: rgba(245, 158, 11, 0.1) !important;
+            border-color: var(--warning) !important;
+            color: var(--warning) !important;
+        }
+
+        .stError {
+            background: rgba(239, 68, 68, 0.1) !important;
+            border-color: var(--error) !important;
+            color: var(--error) !important;
+        }
+
+        /* Result Shell */
+        .result-container {
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            padding: 2rem;
+            margin-top: 1.5rem;
+            line-height: 1.7;
+            color: var(--text-primary);
+        }
+
+        .result-container h1,
+        .result-container h2,
+        .result-container h3 {
+            color: var(--accent-primary);
+            margin-top: 1.5rem;
+            margin-bottom: 0.75rem;
+        }
+
+        .result-container h1 {
+            font-size: 1.75rem;
+        }
+
+        .result-container h2 {
+            font-size: 1.35rem;
+        }
+
+        .result-container h3 {
+            font-size: 1.1rem;
+        }
+
+        .result-container table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 1rem 0;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        .result-container table th {
+            background: rgba(16, 163, 127, 0.15);
+            color: var(--accent-primary);
+            padding: 0.75rem;
+            text-align: left;
+            font-weight: 600;
+            border-bottom: 2px solid var(--border-color);
+        }
+
+        .result-container table td {
+            padding: 0.75rem;
+            border-bottom: 1px solid var(--border-color);
+            color: var(--text-secondary);
+        }
+
+        .result-container table tr:hover {
+            background: rgba(255, 255, 255, 0.02);
+        }
+
+        /* Audit Box */
         .audit-box {
-            background: #0f1f14;
-            border-color: #24472d;
-            color: #dff9e6;
+            background: rgba(16, 163, 127, 0.08);
+            border: 1px solid rgba(16, 163, 127, 0.3);
+            border-radius: 12px;
+            padding: 1rem;
+            margin: 1rem 0;
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+            line-height: 1.6;
         }
 
+        /* File Uploader */
         [data-testid="stFileUploader"] {
-            background: #111111 !important;
-            border: 1px dashed var(--border) !important;
-            border-radius: 16px !important;
-            padding: 12px !important;
+            border: 2px dashed var(--border-color) !important;
+            background: rgba(255, 255, 255, 0.02) !important;
+            border-radius: 12px !important;
+            padding: 1.5rem !important;
+            transition: all 0.3s ease !important;
         }
 
-        [data-testid="stMetric"] {
-            background: #111111 !important;
-            border: 1px solid var(--border) !important;
-            border-radius: 16px !important;
-            padding: 14px !important;
+        [data-testid="stFileUploader"]:hover {
+            border-color: var(--accent-primary) !important;
+            background: rgba(16, 163, 127, 0.05) !important;
         }
 
-        .stAlert { border-radius: 16px !important; }
-        hr { border-color: var(--border) !important; }
-        .footer-note { color: var(--muted2); text-align:center; font-size:12px; padding:28px 0 12px; }
-
-        @media (max-width: 780px) {
-            .block-container { padding-top: 8vh !important; }
-            [data-testid="stSidebar"] { width: 220px !important; min-width: 220px !important; }
+        /* Divider */
+        hr {
+            border-color: var(--border-color) !important;
+            margin: 1.5rem 0 !important;
         }
+
+        /* Sidebar Styles */
+        .sidebar-section {
+            margin-bottom: 2rem;
+        }
+
+        .sidebar-section-title {
+            font-size: 0.85rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: var(--text-tertiary);
+            margin-bottom: 1rem;
+            margin-top: 1.5rem;
+        }
+
+        .sidebar-section:first-child .sidebar-section-title {
+            margin-top: 0;
+        }
+
+        /* Footer */
+        .footer {
+            text-align: center;
+            color: var(--text-tertiary);
+            font-size: 0.85rem;
+            padding: 2rem 0;
+            margin-top: 3rem;
+            border-top: 1px solid var(--border-color);
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .header-title {
+                font-size: 1.75rem;
+            }
+
+            .header-top {
+                flex-direction: column;
+            }
+
+            .stats-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+
+            .card {
+                padding: 1.5rem;
+            }
+        }
+
+        /* Scrollbar Styling */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        /* Metric Styles */
+        [data-testid="metric-container"] {
+            background: rgba(255, 255, 255, 0.03) !important;
+            border: 1px solid var(--border-color) !important;
+            border-radius: 12px !important;
+            padding: 1.25rem !important;
+        }
+
+        /* Caption */
+        .stCaption {
+            color: var(--text-tertiary) !important;
+        }
+
         </style>
         """,
         unsafe_allow_html=True,
     )
+
 
 def load_template_text(filename: str, fallback: str = "") -> str:
     path = TEMPLATE_DIR / filename
@@ -1432,8 +1588,6 @@ def validate_generated_output(result: str, output_scope: str) -> Tuple[bool, Lis
             cover_len = len(cover)
             if cover_len < 1795 or cover_len > 1805:
                 issues.append(f"Cover Letter length is {cover_len} characters. Required 1,795-1,805; target 1,800.")
-            if re.search(r"\[[^\]]+\]", cover):
-                issues.append("Cover Letter contains placeholder text in square brackets.")
 
     lower = (result or "").lower()
     external_terms = ["linkedin ats", "jobscan", "skillsyncer", "resume worded", "rezi"]
@@ -1520,14 +1674,15 @@ def build_context(instructions, master, manager, director, profile: str):
 
 
 def render_downloads(result: str, base_name: str):
-    st.markdown('<div class="section-title">Export</div>', unsafe_allow_html=True)
+    st.markdown('<div class="card"><div class="card-title">📥 Exportar Resultado</div>', unsafe_allow_html=True)
     c1, c2, c3 = st.columns(3)
     with c1:
-        st.download_button("TXT", result.encode("utf-8"), f"{base_name}.txt", "text/plain", use_container_width=True)
+        st.download_button("📄 TXT", result.encode("utf-8"), f"{base_name}.txt", "text/plain", use_container_width=True)
     with c2:
-        st.download_button("DOCX", make_docx(result), f"{base_name}.docx", "application/vnd.openxmlformats-officedocument.wordprocessingml.document", use_container_width=True)
+        st.download_button("📋 DOCX", make_docx(result), f"{base_name}.docx", "application/vnd.openxmlformats-officedocument.wordprocessingml.document", use_container_width=True)
     with c3:
-        st.download_button("PDF", make_pdf(result), f"{base_name}.pdf", "application/pdf", use_container_width=True)
+        st.download_button("📑 PDF", make_pdf(result), f"{base_name}.pdf", "application/pdf", use_container_width=True)
+    st.markdown('</div>', unsafe_allow_html=True)
 
 
 def strict_cv_prompt(context: str, job_description: str, language: str, output_scope: str) -> str:
@@ -1690,25 +1845,20 @@ CV TO VALIDATE
 def show_header(provider_status: str, context_profile: str, selected_model: str):
     st.markdown(
         f"""
-        <div class="chatgpt-brand">CareerOps</div>
-        <div class="chatgpt-home">
-            <div class="chatgpt-title">O que vamos criar hoje?</div>
-            <div class="prompt-shell">
-                <div class="prompt-top">
-                    <span class="prompt-plus">+</span>
-                    <span>Cole uma vaga completa abaixo para gerar CV, carta e análise ATS</span>
+        <div class="header-container">
+            <div class="header-top">
+                <div>
+                    <div class="header-brand">CareerOps Studio</div>
+                    <div class="header-title">Executive CV Optimization</div>
+                    <div class="header-subtitle">Map real achievements to job requirements, route Manager / Director CVs, validate ATS fit, and export client-ready files.</div>
                 </div>
+                <div class="status-badge">{provider_status}</div>
             </div>
-            <div class="prompt-actions">
-                <div class="prompt-chip">Gerar CV otimizado</div>
-                <div class="prompt-chip">Validar ATS</div>
-                <div class="prompt-chip">Exportar PDF · DOCX · TXT</div>
-            </div>
-            <div class="status-row">
-                <div class="status-card"><div class="status-label">Modelo</div><div class="status-value">{selected_model}</div></div>
-                <div class="status-card"><div class="status-label">Contexto</div><div class="status-value">{context_profile}</div></div>
-                <div class="status-card"><div class="status-label">Modo</div><div class="status-value">{provider_status}</div></div>
-                <div class="status-card"><div class="status-label">Roteamento</div><div class="status-value">Manager / Director</div></div>
+            <div class="stats-grid">
+                <div class="stat-card"><div class="stat-label">Primary Model</div><div class="stat-value">{selected_model}</div></div>
+                <div class="stat-card"><div class="stat-label">Context Mode</div><div class="stat-value">{context_profile}</div></div>
+                <div class="stat-card"><div class="stat-label">Routing</div><div class="stat-value">Manager / Director</div></div>
+                <div class="stat-card"><div class="stat-label">Exports</div><div class="stat-value">PDF / DOCX / TXT</div></div>
             </div>
         </div>
         """,
@@ -1716,31 +1866,31 @@ def show_header(provider_status: str, context_profile: str, selected_model: str)
     )
 
 
-st.set_page_config(page_title=APP_TITLE, page_icon="◆", layout="wide")
+st.set_page_config(page_title=APP_TITLE, page_icon="✨", layout="wide")
 inject_css()
 
 with st.sidebar:
-    st.markdown("### Settings")
-    primary_model = st.selectbox("Primary model", MODEL_OPTIONS, index=0)
+    st.markdown("### ⚙️ Configuração")
+    primary_model = st.selectbox("Modelo primário", MODEL_OPTIONS, index=0)
     failover_models = st.multiselect(
-        "Failover models",
+        "Modelos de fallback",
         MODEL_OPTIONS,
         default=["gemini-2.5-flash", "gemini-2.0-flash-lite", "gemini-1.5-flash"],
-        help="If the primary model fails, CareerOps Studio will automatically try the next selected model.",
+        help="Se o modelo primário falhar, CareerOps Studio tentará automaticamente o próximo modelo selecionado.",
     )
-    custom_model = st.text_input("Optional custom model", value="")
+    custom_model = st.text_input("Modelo customizado (opcional)", value="")
     if custom_model.strip():
         failover_models = [custom_model.strip()] + failover_models
-    context_profile = st.selectbox("Context depth", ["Fast", "Balanced", "Deep"], index=1)
-    st.caption("Use failover models to keep generation reliable when one provider is busy.")
+    context_profile = st.selectbox("Profundidade de contexto", ["Fast", "Balanced", "Deep"], index=1)
+    st.caption("Múltiplas chaves de API suportadas.")
     st.divider()
     render_history_panel()
     st.divider()
-    st.markdown("### Knowledge files")
-    instructions_file = st.file_uploader("Operating instructions", type=["txt", "md", "docx", "pdf"], key="instructions")
-    master_file = st.file_uploader("Experience repository", type=["txt", "md", "docx", "pdf"], key="master")
-    manager_file = st.file_uploader("Manager CV template", type=["txt", "md", "docx", "pdf"], key="manager")
-    director_file = st.file_uploader("Director CV template", type=["txt", "md", "docx", "pdf"], key="director")
+    st.markdown("### 📂 Documentos de Origem")
+    instructions_file = st.file_uploader("Instruções", type=["txt", "md", "docx", "pdf"], key="instructions")
+    master_file = st.file_uploader("Repositório de Experiência", type=["txt", "md", "docx", "pdf"], key="master")
+    manager_file = st.file_uploader("Template CV Manager", type=["txt", "md", "docx", "pdf"], key="manager")
+    director_file = st.file_uploader("Template CV Director", type=["txt", "md", "docx", "pdf"], key="director")
 
 instructions_text = read_uploaded_file(instructions_file) or load_first_available([
     "My_ideas/AI_CV_Instructions_Master_Rev7.docx", "AI_CV_Instructions_Master.docx", "AI_CV_Instructions_Master_Rev7.docx"
@@ -1756,55 +1906,55 @@ director_text = read_uploaded_file(director_file) or load_first_available([
 ])
 context = build_context(instructions_text, master_text, manager_text, director_text, context_profile)
 
-provider_status = "Failover enabled" if failover_models else "Single model"
+provider_status = "Fallback ativado" if failover_models else "Modelo único"
 show_header(provider_status, context_profile, primary_model)
 
 
 if st.session_state.get("loaded_history_item"):
     loaded = st.session_state["loaded_history_item"]
-    st.info(f"Loaded from history: {loaded.get('created_at', '')} · {loaded.get('kind', '')} · {loaded.get('title', '')}")
-    with st.expander("Loaded history result"):
+    st.info(f"📂 Carregado do histórico: {loaded.get('created_at', '')} · {loaded.get('kind', '')} · {loaded.get('title', '')}")
+    with st.expander("Resultado do histórico carregado"):
         st.markdown(loaded.get("result", ""))
         render_downloads(
             loaded.get("result", ""),
             f"careerops_history_{loaded.get('id', datetime.now().strftime('%Y%m%d_%H%M'))}",
         )
 
-main_tab, validate_tab, files_tab = st.tabs(["Generate", "Validate", "Files"])
+main_tab, validate_tab, files_tab = st.tabs(["💼 Workspace", "🔍 Validação ATS", "📋 Controle de Fonte"])
 
 with main_tab:
     st.markdown('<div class="card">', unsafe_allow_html=True)
-    st.markdown('<div class="section-title">Generate tailored CV</div>', unsafe_allow_html=True)
-    st.markdown('<p class="section-note">Paste the job description below. CareerOps keeps the same strict CV rules, ATS checks, cover letter logic, and export workflow.</p>', unsafe_allow_html=True)
+    st.markdown('<div class="card-title">✍️ Criar CV Personalizado</div>', unsafe_allow_html=True)
+    st.markdown('<p class="card-subtitle">Cole uma descrição de trabalho completa. O sistema garante formatação ATS compacta, skills ATS verticais, um achievement por linha, contagens de função exatas, carta de apresentação correspondente ao idioma e simulação ATS interna.</p>', unsafe_allow_html=True)
     job_description = st.text_area(
-        "Job description",
+        "Descrição da vaga",
         height=360,
-        placeholder="Paste the full job description here. You can include Markdown tables like: | Metric | Score |"
+        placeholder="Cole a descrição completa da vaga aqui. Você pode incluir tabelas Markdown como: | Métrica | Pontuação |"
     )
-    st.caption("Formatted input tip: paste tables in Markdown format. Example: | Metric | Score |. DOCX tables are also read from uploaded files.")
+    st.caption("Dica de entrada formatada: cole tabelas em formato Markdown. Exemplo: | Métrica | Pontuação |. Tabelas DOCX também são lidas de arquivos enviados.")
     c1, c2 = st.columns([1, 1])
     with c1:
-        language = st.selectbox("Output language", ["Same as job description", "English", "Português do Brasil"])
+        language = st.selectbox("Idioma de saída", ["Mesmo da descrição da vaga", "English", "Português do Brasil"])
     with c2:
         output_scope = st.selectbox(
-            "Output package",
+            "Pacote de saída",
             [
                 "ATS Validation Status, Tailored CV, Cover Letter (strict 1800 chars), Final ATS Report",
                 "Tailored CV only with ATS Validation Status",
                 "ATS Validation Status and Final ATS Report only",
             ],
         )
-    generate = st.button("Generate CV", type="primary", use_container_width=True)
+    generate = st.button("🚀 Gerar CV Pronto para Cliente", type="primary", use_container_width=True)
     st.markdown('</div>', unsafe_allow_html=True)
 
     if generate:
         if not job_description.strip():
-            st.warning("Paste the job description first.")
+            st.warning("Cole a descrição da vaga primeiro.")
         elif len(master_text.strip()) < 500:
-            st.error("The Experience Repository is missing or too small. Upload the real Master Experience File before generating a CV.")
+            st.error("O Repositório de Experiência está ausente ou muito pequeno. Envie o arquivo Master Experience File real antes de gerar um CV.")
         else:
             prompt = strict_cv_prompt(context, job_description, language, output_scope)
-            with st.spinner("Building CV and running strict validation..."):
+            with st.spinner("Construindo CV e executando validação estrita..."):
                 try:
                     result, used_model, attempts, strict_issues = generate_with_strict_validation(
                         prompt,
@@ -1813,8 +1963,8 @@ with main_tab:
                         failover_models,
                     )
                     if strict_issues:
-                        st.warning("Strict validation still found issues after repair attempts. Review below before sending to client.")
-                        with st.expander("Strict validation issues"):
+                        st.warning("A validação estrita ainda encontrou problemas após tentativas de reparo. Revise abaixo antes de enviar para o cliente.")
+                        with st.expander("Problemas de validação estrita"):
                             for issue in strict_issues:
                                 st.write("- " + issue)
                 except Exception as exc:
@@ -1824,32 +1974,32 @@ with main_tab:
             st.session_state["last_job"] = job_description
             add_history_item(
                 kind="CV",
-                title=get_history_title(job_description, "Tailored CV"),
+                title=get_history_title(job_description, "CV Personalizado"),
                 job_description=job_description,
                 result=result,
                 model=used_model,
                 context_profile=context_profile,
             )
-            st.markdown(f'<div class="audit-box">Processed with: <b>{used_model}</b><br>Attempts: {" → ".join(attempts)}</div>', unsafe_allow_html=True)
-            st.markdown('<div class="result-shell">', unsafe_allow_html=True)
+            st.markdown(f'<div class="audit-box">✅ Processado com: <b>{used_model}</b><br>Tentativas: {" → ".join(attempts)}</div>', unsafe_allow_html=True)
+            st.markdown('<div class="result-container">', unsafe_allow_html=True)
             st.markdown(result)
             st.markdown('</div>', unsafe_allow_html=True)
             render_downloads(result, f"careerops_cv_{datetime.now().strftime('%Y%m%d_%H%M')}")
 
 with validate_tab:
     st.markdown('<div class="card">', unsafe_allow_html=True)
-    st.markdown('<div class="section-title">Validate an existing CV</div>', unsafe_allow_html=True)
-    st.markdown('<p class="section-note">Paste a CV and job description to run the same internal ATS-style validation and keyword-gap checks.</p>', unsafe_allow_html=True)
-    existing_cv = st.text_area("Existing CV text", height=260, value=st.session_state.get("last_result", ""))
-    validation_job = st.text_area("Job description for validation", height=240, value=st.session_state.get("last_job", ""))
-    validate = st.button("Validate CV", type="primary", use_container_width=True)
+    st.markdown('<div class="card-title">🔍 Validar CV Existente</div>', unsafe_allow_html=True)
+    st.markdown('<p class="card-subtitle">Use isto quando o cliente já tem um CV e quer verificar correspondência ATS, lacunas de palavras-chave e alinhamento de função.</p>', unsafe_allow_html=True)
+    existing_cv = st.text_area("Texto do CV existente", height=260, value=st.session_state.get("last_result", ""))
+    validation_job = st.text_area("Descrição da vaga para validação", height=240, value=st.session_state.get("last_job", ""))
+    validate = st.button("🔎 Executar Validação ATS", type="primary", use_container_width=True)
     st.markdown('</div>', unsafe_allow_html=True)
     if validate:
         if not existing_cv.strip() or not validation_job.strip():
-            st.warning("Paste both the CV and the job description.")
+            st.warning("Cole tanto o CV quanto a descrição da vaga.")
         else:
-            prompt = ats_validation_prompt(context, existing_cv, validation_job, "Same as job description")
-            with st.spinner("Validating ATS fit and testing failover if needed..."):
+            prompt = ats_validation_prompt(context, existing_cv, validation_job, "Mesmo da descrição da vaga")
+            with st.spinner("Validando ajuste ATS e testando fallback se necessário..."):
                 try:
                     result, used_model, attempts = call_model(prompt, primary_model, failover_models)
                 except Exception as exc:
@@ -1857,31 +2007,31 @@ with validate_tab:
                     st.stop()
             add_history_item(
                 kind="Validation",
-                title=get_history_title(validation_job, "ATS Validation"),
+                title=get_history_title(validation_job, "Validação ATS"),
                 job_description=validation_job,
                 result=result,
                 model=used_model,
                 context_profile=context_profile,
             )
-            st.markdown(f'<div class="audit-box">Processed with: <b>{used_model}</b><br>Attempts: {" → ".join(attempts)}</div>', unsafe_allow_html=True)
-            st.markdown('<div class="result-shell">', unsafe_allow_html=True)
+            st.markdown(f'<div class="audit-box">✅ Processado com: <b>{used_model}</b><br>Tentativas: {" → ".join(attempts)}</div>', unsafe_allow_html=True)
+            st.markdown('<div class="result-container">', unsafe_allow_html=True)
             st.markdown(result)
             st.markdown('</div>', unsafe_allow_html=True)
             render_downloads(result, f"careerops_validation_{datetime.now().strftime('%Y%m%d_%H%M')}")
 
 with files_tab:
     st.markdown('<div class="card">', unsafe_allow_html=True)
-    st.markdown('<div class="section-title">Loaded files</div>', unsafe_allow_html=True)
-    st.markdown('<p class="section-note">Check whether your instructions, repository and templates were loaded correctly.</p>', unsafe_allow_html=True)
+    st.markdown('<div class="card-title">📋 Arquivos de Origem Carregados</div>', unsafe_allow_html=True)
+    st.markdown('<p class="card-subtitle">Confirme que o material de origem foi carregado corretamente. Tabelas Markdown e conteúdo de tabelas DOCX são exportados como células formatadas em DOCX e PDF.</p>', unsafe_allow_html=True)
     c1, c2, c3, c4 = st.columns(4)
-    c1.metric("Instructions", f"{len(instructions_text):,}".replace(",", "."))
-    c2.metric("Experience Repository", f"{len(master_text):,}".replace(",", "."))
-    c3.metric("Manager Template", f"{len(manager_text):,}".replace(",", "."))
-    c4.metric("Director Template", f"{len(director_text):,}".replace(",", "."))
+    c1.metric("Instruções", f"{len(instructions_text):,}".replace(",", "."))
+    c2.metric("Repositório de Experiência", f"{len(master_text):,}".replace(",", "."))
+    c3.metric("Template Manager", f"{len(manager_text):,}".replace(",", "."))
+    c4.metric("Template Director", f"{len(director_text):,}".replace(",", "."))
     st.markdown('</div>', unsafe_allow_html=True)
-    with st.expander("Preview instructions"):
+    with st.expander("👁️ Visualizar Instruções"):
         st.text(truncate_text(instructions_text, 6000))
-    with st.expander("Preview Experience Repository"):
+    with st.expander("👁️ Visualizar Repositório de Experiência"):
         st.text(truncate_text(master_text, 6000))
 
-st.markdown('<div class="footer-note">CareerOps Studio · Private executive resume optimization workspace</div>', unsafe_allow_html=True)
+st.markdown('<div class="footer">CareerOps Studio - Workspace privado de otimização de currículo executivo</div>', unsafe_allow_html=True)
